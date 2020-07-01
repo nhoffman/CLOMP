@@ -484,6 +484,9 @@ set -e
 # For logging and debugging, list all of the files in the working directory
 ls -lahtr
 
+# Free space in directory 
+df -h 
+
 for fp in ${r1_list}; do
   echo Checking to make sure that \$fp was downloaded to the worker
   [[ -s \$fp ]]
