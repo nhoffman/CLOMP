@@ -417,8 +417,8 @@ workflow {
                 CLOMP_summary.out[2].groupTuple()
             ),
             BLAST_CHECK_DB,
-            KRAKEN_DB,
-            deduplicate.out
+            KRAKEN_DB //,
+            // deduplicate.out
         )
         // summarize_run( 
         //     generate_report.out[0].toList(), 
