@@ -1008,13 +1008,13 @@ process generate_report {
       tuple val(base), file(kraken_tsv_list), file(unassigned_txt_list), file(assigned_txt_list)
       file BLAST_CHECK_DB
       file "kraken_db/"
-      file r1
+     // file r1
     // Define the output files
     output:
       file "${base}.final_report.tsv"
       file "${base}_unassigned.txt"
       file "${base}_assigned.txt"
-      file "*metagenome.fastq.gz"
+     // file "*metagenome.fastq.gz"
     // Code to be executed inside the task
     script:
       """
