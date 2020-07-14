@@ -391,7 +391,7 @@ process deduplicate {
       sample_name=\$(echo ${r1} | sed 's/.R1.fastq.gz//')
       echo "Processing \$sample_name"
 
-      dedupe2.sh in=${r1} out=${r1}.deduped.fastq.gz
+      dedupe2.sh in=${r1} out=${r1}.deduped.fastq.gz -Xmx20g
 
       mv ${r1}.deduped.fastq.gz ${r1}
       
