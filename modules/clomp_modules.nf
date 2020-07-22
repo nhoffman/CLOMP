@@ -670,11 +670,13 @@ def tie_break(taxid_list):
 			lineage = ncbi.get_lineage(id)
 			# filters out lineages that contain taxids in the FILTER_LIST variable
 			# commonly, this is 'other sequences', 'artificial sequences' or 'environmental samples' 
-			if any(x in ${params.FILTER_LIST} for x in lineage):
-				lineage = []
+
 		except:
 			lineage = []
-		
+					
+		if any(str(x) in ${params.FILTER_LIST} for x in lineage):
+			lineage = []
+    
 		if lineage:
 			lineage_list.append(lineage)
 	
