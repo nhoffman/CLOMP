@@ -531,15 +531,16 @@ bash snap_cmd.sh
 process collect_snap_results {
 
     // Retry at most 3 times
-    errorStrategy 'retry'
-    maxRetries 3
+    //errorStrategy 'retry'
+    //maxRetries 3
     
     // Define the Docker container used for this step
-    container "quay.io/fhcrc-microbiome/bowtie2:bowtie2-2.2.9-samtools-1.3.1"
+    container "quay.io/vpeddu/clomp_containers:latest"
 
     // Define the input files
     input:
       tuple val(base), file(bam_list)
+      file SAM_SPLIT 
 
     // Define the output files
     output:
@@ -559,25 +560,33 @@ ls -lahtr
 
 #for i in *.bam; do echo \$i ; tempcount=\$(samtools view -c \$i); \$bamcount=\$((\$bamcount ; done
 #for i in *.bam; do echo \$i ; tempcount=\$(samtools view -c \$i); \$bamcount=\$((\$bamcount + \$tempcount)); done
-echo "here"
 
 echo "Merging BAM files for ${base}"
 
-for i in ${bam_list}; do samtools view \$i >> ${base}.sam; done
+for i in ${bam_list}; do /usr/bin/samtools view \$i >> ${base}.sam; done
 
-linenum=`cat ${base}.sam | wc -l`
+echo "sorting ${base} pseudosam by readname"
 
-echo "lines: " \$linenum
+sort -k 1 ${base}.sam > ${base}.sorted.sam
 
-echo "tiebreaking chunks: " ${params.TIEBREAKING_CHUNKS}
+echo "splitting ${base} pseudosam"
+
+python3 ${SAM_SPLIT} ${base}.sorted.sam ${params.TIEBREAKING_CHUNKS} ${base}
+
+#linenum=`cat ${base}.sam | wc -l`
+
+#echo "lines: " \$linenum
+
+#echo  "tiebreaking chunks: " ${params.TIEBREAKING_CHUNKS}
 
 #splitnum=`echo \$(( \$linenum / ${task.cpus} ))`
-splitnum=`echo \$(( \$linenum / ${params.TIEBREAKING_CHUNKS} ))`
+#splitnum=`echo \$(( \$linenum / ${params.TIEBREAKING_CHUNKS} ))`
 
-echo "lines to split: "\$splitnum 
+#echo "lines to split: "\$splitnum 
 
-cat ${base}.sam | split -l \$splitnum - ${base}
+#cat ${base}.sam | split -l \$splitnum - ${base}
 
+rm ${base}.sorted.sam
 rm ${base}.sam
 
 

@@ -2,3 +2,6 @@
 test_data/work/
 test_data/big/
 *trace.txt*
+output*
+work/*
+report*

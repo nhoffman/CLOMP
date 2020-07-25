@@ -172,6 +172,8 @@ if (!params.OUTDIR.endsWith("/")){
 TRIMMOMATIC_JAR = file(params.TRIMMOMATIC_JAR_PATH)
 TRIMMOMATIC_ADAPTER = file(params.TRIMMOMATIC_ADAPTER_PATH)
 GENERATE_SUMMARY_SCRIPT = file("modules/summarize_run.r")
+SAM_SPLIT = file("${workflow.projectDir}/bin/sam_split.py")
+
 
 if (params.BLAST_CHECK){
     if (!params.BLAST_CHECK_DB){ exit 1, "Must provide BLAST check database with --BLAST_CHECK_DB" }
@@ -185,6 +187,8 @@ KRAKEN_DB = [
     file("${params.KRAKEN_DB_PATH}seqid2taxid.map"),
     file("${params.KRAKEN_DB_PATH}taxDB")
 ]
+
+
 
 /*
  * Import the processes used in this workflow
@@ -401,7 +405,8 @@ workflow {
         collect_snap_results(
             snap_single.out.flatten().map{
                 it -> [it.name.split("__")[0], it]
-            }.groupTuple()
+            }.groupTuple(),
+            SAM_SPLIT
         )
 
         CLOMP_summary(
