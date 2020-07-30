@@ -1020,12 +1020,15 @@ process generate_report {
       file BLAST_CHECK_DB
       file "kraken_db/"
       file r1
+      file NODES
+      file MERGED
     // Define the output files
     output:
       file "${base}.final_report.tsv"
       file "${base}_unassigned.txt"
       file "${base}_assigned.txt"
       file "*metagenome.fastq.gz"
+      file "*.clompviz.tsv"
     // Code to be executed inside the task
     script:
       """
@@ -1043,6 +1046,9 @@ import operator
 from collections import Counter
 from ete3 import NCBITaxa
 import timeit
+import sys
+import string
+
 from collections import defaultdict
 ncbi = NCBITaxa()
 
@@ -1111,6 +1117,59 @@ subprocess.call("echo FILES  ;ls -latr",shell = True)
 # subprocess.call(" mv ${base}.fastq.gz ${base}.metagenome.fastq.gz",shell = True)
 subprocess.call(' x=`basename -s ".fastq.gz" *.fastq.gz` ; mv *.fastq.gz \$x.metagenome.fastq.gz',shell = True)
 
+### NEW 
+
+
+
+nodes = open ('nodes.dpm')
+
+taxa = {} 
+
+taxa[0] = 'root'
+taxa[1] = 'cellular_organisms'
+
+for line in nodes: 
+	accession =  line.strip().split('\t|\t')
+	#if ' ' in accession[2] : 
+	#	print(accession[2].replace(' ', '_'))
+	ranks = accession[2].replace(" ", "_")
+	taxa[int(accession[0])] = ranks 
+
+#print(taxa[131567])
+#print(taxa[0])
+#print(taxa)
+
+# not all taxa are in nodes.dmp anymore 
+# some have been merged with other taxa. These are in merged.dmp
+merged_taxa = {}
+merged_nodes = open('merged.dmp')
+for line in merged_nodes: 
+	accession =  line.split('\t|')
+	merged_taxa[int(accession[0])] = int(accession[1].strip())
+
+
+files = glob.glob('*.final_report.tsv')
+#print(files)
+for file in files: 
+	#print(file)
+	currentFile = open(file)
+	newFileName = os.path.split(file)[1].split('.tsv')[0] + '.clompviz.tsv'
+	print(newFileName)
+	newFile = open(newFileName, "w")
+	for line in currentFile:
+		# checks if in nodes.dmp
+		try:
+			new_phylum = taxa[int(line.split('\t')[4])]
+		#checks if in merged.dmp
+		except: 
+			try: 
+				new_phylum = merged_taxa[int(line.split('\t')[4])]
+			except: 
+				print("warning: "+  str(int(line.split('\t')[4])) +  ' not found')
+				new_phylum = 'not_found'
+		print(new_phylum)
+		newline = line.replace(line.split('\t')[3], str(new_phylum))
+		newFile.write(newline)
 
 
 """

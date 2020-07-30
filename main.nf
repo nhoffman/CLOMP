@@ -157,6 +157,9 @@ params.EDIT_DISTANCE_OFFSET = 6
 params.BUILD_SAMS = false
 params.SNAP_BATCHSIZE = 20
 params.TIEBREAKING_CHUNKS = 2
+params.TAXDUMP_NODES = 's3://clomp-reference-data/tool_specific_data/CLOMP/clomp_viz/nodes.dmp'
+params.TAXDUMP_MERGED = 's3://clomp-reference-data/tool_specific_data/CLOMP/clomp_viz/merged.dmp'
+
 
 // Check to make sure that the required parameters have been set
 if (!params.INPUT_FOLDER){ exit 1, "Must provide folder containing input files with --INPUT_FOLDER" }
@@ -173,7 +176,8 @@ TRIMMOMATIC_JAR = file(params.TRIMMOMATIC_JAR_PATH)
 TRIMMOMATIC_ADAPTER = file(params.TRIMMOMATIC_ADAPTER_PATH)
 GENERATE_SUMMARY_SCRIPT = file("modules/summarize_run.r")
 SAM_SPLIT = file("${workflow.projectDir}/bin/sam_split.py")
-
+TAXDUMP_NODES = file(params.TAXDUMP_NODES)
+TAXDUMP_MERGED = file(params.TAXDUMP_MERGED)
 
 if (params.BLAST_CHECK){
     if (!params.BLAST_CHECK_DB){ exit 1, "Must provide BLAST check database with --BLAST_CHECK_DB" }
@@ -423,7 +427,9 @@ workflow {
             ),
             BLAST_CHECK_DB,
             KRAKEN_DB,
-            deduplicate.out
+            deduplicate.out,
+            TAXDUMP_NODES,
+            TAXDUMP_MERGED
         )
         // summarize_run( 
         //     generate_report.out[0].toList(), 
