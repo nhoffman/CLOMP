@@ -567,7 +567,7 @@ for i in ${bam_list}; do /usr/bin/samtools view \$i >> ${base}.sam; done
 
 echo "sorting ${base} pseudosam by readname"
 
-sort -k 1 ${base}.sam > ${base}.sorted.sam
+sort -k 1 --buffer-size=200G ${base}.sam > ${base}.sorted.sam
 
 echo "splitting ${base} pseudosam"
 
