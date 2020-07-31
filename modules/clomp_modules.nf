@@ -1121,7 +1121,7 @@ subprocess.call(' x=`basename -s ".fastq.gz" *.fastq.gz` ; mv *.fastq.gz \$x.met
 
 
 
-nodes = open ('nodes.dpm')
+nodes = open ('nodes.dmp')
 
 taxa = {} 
 
