@@ -6,7 +6,7 @@ params.SECOND_PASS = false
 params.BWT_SECOND_PASS_OPTIONS = false
 params.BWT_DB_PREFIX = false
 params.SEQUENCER = false
-params.TRIMMOMATIC_OPTIONS = false
+params.TRIMMOMATIC_OPTIONS = 'ktrim=r k=27 hdist=1 edist=0 mink=4 qtrim=rl trimq=6 minlength=65 ordered=t qin=33'
 params.SNAP_OPTIONS = false
 params.BLAST_CHECK = false
 params.WRITE_UNIQUES = false
