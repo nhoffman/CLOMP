@@ -213,6 +213,7 @@ samtools view -@ ${task.cpus} -f 4 \${sample_name}_mappedBam | \
       """
 }
 
+// Depracated because of java memory errors with big files. Using bbduk instead. 
 process trimmomatic_single {
 
     // Retry at most 3 times
@@ -342,6 +343,8 @@ echo "Processing \$sample_name"
 
 # Rename the input file to make sure we don't use it as the output
 mv ${r1} INPUT.${r1}
+
+echo "trimming with options ${params.BBDUK_TRIM_OPTIONS}"
 
 echo "Masking ${r1}"
 bbduk.sh \

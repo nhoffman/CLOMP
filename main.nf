@@ -374,18 +374,19 @@ workflow {
         } else {
             //Trimmomatic depracated. Using BBDuk for quality filtering, adapter trimming, and entropy filtering 
 
-            //trimmomatic_single(
-            //   validate_single.out,
-            //   TRIMMOMATIC_JAR,
-            //   TRIMMOMATIC_ADAPTER
-            //)
-            bbMask_Single(
-                validate_single.out,
-                TRIMMOMATIC_ADAPTER
-                )
+            trimmomatic_single(
+              validate_single.out,
+              TRIMMOMATIC_JAR,
+              TRIMMOMATIC_ADAPTER
+            )
+            // bbMask_Single(
+            //     validate_single.out,
+            //     TRIMMOMATIC_ADAPTER
+            //     )
             if ( params.DEDUPE){ 
             deduplicate(
-                bbMask_Single.out
+                //bbMask_Single.out
+                trimmomatic_single.out
                 )
             filter_human_single(
                 deduplicate.out,
@@ -394,7 +395,8 @@ workflow {
             }
             else { 
             filter_human_single(
-                bbMask_Single.out,
+                //bbMask_Single.out,
+                trimmomatic_single.out,
                 BWT_FILES
             )
 
