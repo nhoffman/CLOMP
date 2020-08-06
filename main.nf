@@ -379,10 +379,10 @@ workflow {
               TRIMMOMATIC_JAR,
               TRIMMOMATIC_ADAPTER
             )
-            // bbMask_Single(
-            //     validate_single.out,
-            //     TRIMMOMATIC_ADAPTER
-            //     )
+            bbMask_Single(
+                trimmomatic_single.out,
+                TRIMMOMATIC_ADAPTER
+                )
             // if ( params.DEDUPE ){ 
             // deduplicate(
             //     //bbMask_Single.out
@@ -392,14 +392,14 @@ workflow {
             //     deduplicate.out,
             //     BWT_FILES
             //     )
-            //} else { 
+            // } else { 
             filter_human_single(
                 //bbMask_Single.out,
                 trimmomatic_single.out,
                 BWT_FILES
             )
 
-            //}
+            // }
             snap_single(
                 filter_human_single.out[0].toSortedList().flatten().collate(params.SNAP_BATCHSIZE),
                 SNAP_INDEXES_CH

@@ -243,7 +243,11 @@ set -e
 # For logging and debugging, list all of the files in the working directory
 ls -lahtr
 
-echo "Starting to trim ${r1}"
+echo "Reads before adapter trimming (Trimmomatic) "
+echo $(zcat ${r1} |wc -l)/4|bc
+
+
+echo "Starting to trim ${r1} with options ${params.TRIMMOMATIC_OPTIONS}"
 
 # Rename the file to prevent collision
 mv ${r1} INPUT.${r1}
@@ -255,6 +259,11 @@ java -jar \
     INPUT.${r1} \
     ${r1} \
     ${params.SEQUENCER}${TRIMMOMATIC_ADAPTER}${params.TRIMMOMATIC_OPTIONS}
+
+
+echo 'Reads after adapter trimming '
+echo $(zcat ${r1} |wc -l)/4|bc
+
 """
 }
 
@@ -289,7 +298,8 @@ set -e
 # For logging and debugging, list all of the files in the working directory
 ls -lahtr
 
-echo "Starting to trim ${r1} and ${r2}"
+
+
 java -jar \
     ${TRIMMOMATIC_JAR} \
     PE \
@@ -344,20 +354,25 @@ echo "Processing \$sample_name"
 # Rename the input file to make sure we don't use it as the output
 mv ${r1} INPUT.${r1}
 
-echo "trimming with options ${params.BBDUK_TRIM_OPTIONS}"
+echo "Reads before low complexity filtering "
+echo $(zcat INPUT.${r1} |wc -l)/4|bc
 
 echo "Masking ${r1}"
 bbduk.sh \
     in=INPUT.${r1} \
-    out=${r1}.trimmed.fastq.gz \
+    out=${r1}.lcf.fastq.gz \
     entropy=0.7 \
     entropywindow=50 \
-    entropyk=4 \
-    ref=${TRIMMOMATIC_ADAPTER} \
-    ${params.BBDUK_TRIM_OPTIONS}
+    entropyk=4 
     
 
-    mv ${r1}.trimmed.fastq.gz ${r1}
+    
+
+    mv ${r1}.lcf.fastq.gz ${r1}
+
+echo "Reads after low complexity filtering"
+echo $(zcat ${r1} |wc -l)/4|bc
+
 
 """
 }
