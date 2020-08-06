@@ -392,8 +392,7 @@ workflow {
                 deduplicate.out,
                 BWT_FILES
                 )
-            }
-            else { 
+            } else { 
             filter_human_single(
                 //bbMask_Single.out,
                 trimmomatic_single.out,
