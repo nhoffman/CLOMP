@@ -6,6 +6,7 @@ RUN apt update && \
                    python3-pip \
                    python3-pysam \
                    wget \
+                   vim \
                    samtools && \
     pip3 install biopython \
                  ete3 \

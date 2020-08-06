@@ -6,7 +6,7 @@ params.SECOND_PASS = false
 params.BWT_SECOND_PASS_OPTIONS = false
 params.BWT_DB_PREFIX = false
 params.SEQUENCER = false
-params.TRIMMOMATIC_OPTIONS = 'ktrim=r k=27 hdist=1 edist=0 mink=4 qtrim=rl trimq=6 minlength=65 ordered=t qin=33'
+params.TRIMMOMATIC_OPTIONS = ':2:30:10 HEADCROP:10 SLIDINGWINDOW:4:20 CROP:65 MINLEN:65'
 params.SNAP_OPTIONS = false
 params.BLAST_CHECK = false
 params.WRITE_UNIQUES = false
@@ -589,7 +589,7 @@ python3 ${SAM_SPLIT} ${base}.sorted.sam ${params.TIEBREAKING_CHUNKS} ${base}
 
 #cat ${base}.sam | split -l \$splitnum - ${base}
 
-rm ${base}.sorted.sam
+mv ${base}.sorted.sam sortedsam.sam
 rm ${base}.sam
 
 
