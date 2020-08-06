@@ -572,6 +572,9 @@ echo "sorting ${base} pseudosam by readname"
 
 sort -k 1 --buffer-size=200G ${base}.sam > ${base}.sorted.sam
 
+echo "ls after sort" 
+ls -lah
+
 echo "splitting ${base} pseudosam"
 
 python3 ${SAM_SPLIT} ${base}.sorted.sam ${params.TIEBREAKING_CHUNKS} ${base}
