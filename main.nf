@@ -383,23 +383,23 @@ workflow {
             //     validate_single.out,
             //     TRIMMOMATIC_ADAPTER
             //     )
-            if ( params.DEDUPE){ 
-            deduplicate(
-                //bbMask_Single.out
-                trimmomatic_single.out
-                )
-            filter_human_single(
-                deduplicate.out,
-                BWT_FILES
-                )
-            } else { 
+            // if ( params.DEDUPE ){ 
+            // deduplicate(
+            //     //bbMask_Single.out
+            //     trimmomatic_single.out
+            //     )
+            // filter_human_single(
+            //     deduplicate.out,
+            //     BWT_FILES
+            //     )
+            //} else { 
             filter_human_single(
                 //bbMask_Single.out,
                 trimmomatic_single.out,
                 BWT_FILES
             )
 
-            }
+            //}
             snap_single(
                 filter_human_single.out[0].toSortedList().flatten().collate(params.SNAP_BATCHSIZE),
                 SNAP_INDEXES_CH
