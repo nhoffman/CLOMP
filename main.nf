@@ -429,7 +429,7 @@ workflow {
             ),
             BLAST_CHECK_DB,
             KRAKEN_DB,
-            deduplicate.out,
+            filter_human_single.out[0],
             TAXDUMP_NODES,
             TAXDUMP_MERGED
         )
