@@ -166,14 +166,14 @@ process filter_human_single {
 
     // Define the input files
     input:
-      file r1
+      tuple val(base), file (r1)
       file "*"
 
     // Define the output files
     output:
       file "${r1}"
       file "*.log"
-
+      tuple env(base), env(difference)
     // Code to be executed inside the task
     script:
       """
@@ -184,8 +184,22 @@ set -e
 # For logging and debugging, list all of the files in the working directory
 ls -lahtr
 
+
+
+
+base=`basename ${base} .R1`
+echo \$base
+
 # Get the sample name from the input FASTQ name
 sample_name=\$(echo ${r1} | sed 's/.R1.fastq.gz//')
+
+readsbefore=`gzip -dc ${r1} | awk 'NR%4==2{c++} END{ print c;}'`
+
+echo "\$readsbefore Reads before host filtering "
+
+
+
+
 
 echo "Starting the alignment of ${r1}"
 bowtie2 \
@@ -210,6 +224,15 @@ echo "Extracting the FASTQ"
 samtools view -@ ${task.cpus} -f 4 \${sample_name}_mappedBam | \
     awk \'{if(\$3 == \"*\") print \"@\" \$1 \"\\n\" \$10 \"\\n\" \"+\" \$1 \"\\n\" \$11}\' | \
     gzip -c > \${sample_name}.R1.fastq.gz
+
+readsafter=`gzip -dc ${r1} | awk 'NR%4==2{c++} END{ print c;}'`
+echo "\$readsafter Reads after host filtering "
+
+
+difference=\$((\$readsbefore-\$readsafter))
+
+echo "host filtered \$difference reads"
+
       """
 }
 
@@ -244,7 +267,8 @@ set -e
 ls -lahtr
 
 echo "Reads before adapter trimming (Trimmomatic) "
-echo $(zcat ${r1} |wc -l)/4|bc
+
+gzip -dc ${r1} | awk 'NR%4==2{c++} END{ print c;}'
 
 
 echo "Starting to trim ${r1} with options ${params.TRIMMOMATIC_OPTIONS}"
@@ -262,7 +286,7 @@ java -jar \
 
 
 echo 'Reads after adapter trimming '
-echo $(zcat ${r1} |wc -l)/4|bc
+gzip -dc ${r1} | awk 'NR%4==2{c++} END{ print c;}'
 
 """
 }
@@ -355,7 +379,7 @@ echo "Processing \$sample_name"
 mv ${r1} INPUT.${r1}
 
 echo "Reads before low complexity filtering "
-echo $(zcat INPUT.${r1} |wc -l)/4|bc
+gzip -dc ${r1} | awk 'NR%4==2{c++} END{ print c;}'
 
 echo "Masking ${r1}"
 bbduk.sh \
@@ -371,7 +395,7 @@ bbduk.sh \
     mv ${r1}.lcf.fastq.gz ${r1}
 
 echo "Reads after low complexity filtering"
-echo $(zcat ${r1} |wc -l)/4|bc
+gzip -dc ${r1} | awk 'NR%4==2{c++} END{ print c;}'
 
 
 """
@@ -1029,20 +1053,21 @@ process generate_report {
 
 
     //Retry at most 3 times
-    errorStrategy 'retry'
-    maxRetries 3
+    //errorStrategy 'retry'
+    //maxRetries 3
     
     // Define the Docker container used for this step
     container "quay.io/fhcrc-microbiome/clomp:v0.1.3"
 
     // Define the input files
     input:
-      tuple val(base), file(kraken_tsv_list), file(unassigned_txt_list), file(assigned_txt_list)
+      tuple val(base), file(kraken_tsv_list), file(unassigned_txt_list), file(assigned_txt_list), val(HOST_FILTERED_READS)
       file BLAST_CHECK_DB
       file "kraken_db/"
       file r1
       file NODES
       file MERGED
+      // val host_filtered_count
     // Define the output files
     output:
       file "${base}.final_report.tsv"
@@ -1075,8 +1100,12 @@ ncbi = NCBITaxa()
 
 
 # Combine all of the input TSVs into a single file
-
-
+print('base')
+print("${base}")
+print('difference')
+print(type(${HOST_FILTERED_READS}))
+print(${HOST_FILTERED_READS}[0])
+host_filtered_reads = ${HOST_FILTERED_READS}[0]
 input_files = "${kraken_tsv_list}".split(" ")
 
 unassigned_generate = 'cat ${unassigned_txt_list} > ${base}_unassigned.txt'
@@ -1170,14 +1199,19 @@ for line in merged_nodes:
 
 
 files = glob.glob('*.final_report.tsv')
-#print(files)
+print('files')
+print(${params.H_TAXID})
+new_host_filter_count = False
 for file in files: 
-	#print(file)
+	print('here')
 	currentFile = open(file)
 	newFileName = os.path.split(file)[1].split('.tsv')[0] + '.clompviz.tsv'
 	print(newFileName)
 	newFile = open(newFileName, "w")
 	for line in currentFile:
+		print(line.split('\t')[4])
+		if line.split('\t')[4] == ${params.H_TAXID}: 
+			new_host_filter_count = host_filtered_reads + line.split('\t')[1]
 		# checks if in nodes.dmp
 		try:
 			new_phylum = taxa[int(line.split('\t')[4])]
@@ -1189,6 +1223,8 @@ for file in files:
 				print("warning: "+  str(int(line.split('\t')[4])) +  ' not found')
 				new_phylum = 'not_found'
 		print(new_phylum)
+		if new_host_filter_count:
+			newline = line.replace(line.split('\t')[1], str(new_host_filter_count))
 		newline = line.replace(line.split('\t')[3], str(new_phylum))
 		newFile.write(newline)
 

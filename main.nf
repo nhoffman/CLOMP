@@ -395,7 +395,10 @@ workflow {
             // } else { 
             filter_human_single(
                 //bbMask_Single.out,
-                trimmomatic_single.out,
+                //bbMask_Single.out,
+                bbMask_Single.out.flatten().map{
+                it -> [it.name.replace(/${params.INPUT_SUFFIX}/, ""), it]
+            }.groupTuple(),
                 BWT_FILES
             )
 
@@ -425,12 +428,15 @@ workflow {
                 CLOMP_summary.out[1].groupTuple()
             ).join(
                 CLOMP_summary.out[2].groupTuple()
+            ).join( 
+            filter_human_single.out[2].groupTuple()
             ),
             BLAST_CHECK_DB,
             KRAKEN_DB,
             filter_human_single.out[0],
             TAXDUMP_NODES,
-            TAXDUMP_MERGED
+            TAXDUMP_MERGED,
+            //filter_human_single.out[2]
         )
         // summarize_run( 
         //     generate_report.out[0].toList(), 
