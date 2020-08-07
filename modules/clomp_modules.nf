@@ -1207,10 +1207,14 @@ for file in files:
 	newFileName = os.path.split(file)[1].split('.tsv')[0] + '.clompviz.tsv'
 	newFile = open(newFileName, "w")
 	for line in currentFile:
-		print(line.split('\t')[4])
 		if str(line.split('\t')[4]) == str(${params.H_TAXID}): 
-			print('found')
-			new_host_filter_count = host_filtered_reads + line.split('\t')[1]
+			print('host filtered')
+			print(host_filtered_reads)
+			print('previous count')
+			print(int(line.split('\t')[1]))
+			new_host_filter_count = int(host_filtered_reads) + int(line.split('\t')[1])
+			print('added count')
+			print(new_host_filter_count)
 		# checks if in nodes.dmp
 		try:
 			new_phylum = taxa[int(line.split('\t')[4])]
@@ -1222,8 +1226,11 @@ for file in files:
 				print("warning: "+  str(int(line.split('\t')[4])) +  ' not found')
 				new_phylum = 'not_found'
 		if new_host_filter_count:
+			print('here')
 			newline = line.replace(line.split('\t')[1], str(new_host_filter_count))
-		newline = line.replace(line.split('\t')[3], str(new_phylum))
+			print(newline)
+		else:
+			newline = line.replace(line.split('\t')[3], str(new_phylum))
 		newFile.write(newline)
 
 
