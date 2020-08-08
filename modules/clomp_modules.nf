@@ -1229,7 +1229,7 @@ for file in files:
 			print('here')
 			newline = line.replace(line.split('\t')[1], str(new_host_filter_count))
 			print(newline)
-      new_host_filter_count = False
+			new_host_filter_count = False
 		else:
 			newline = line.replace(line.split('\t')[3], str(new_phylum))
 		newFile.write(newline)
