@@ -1098,6 +1098,9 @@ import string
 from collections import defaultdict
 ncbi = NCBITaxa()
 
+host_lineage = ncbi.get_lineage(${params.H_TAXID})
+print(host_lineage)
+print(type(host_lineage))
 
 # Combine all of the input TSVs into a single file
 print('base')
@@ -1207,7 +1210,7 @@ for file in files:
 	newFileName = os.path.split(file)[1].split('.tsv')[0] + '.clompviz.tsv'
 	newFile = open(newFileName, "w")
 	for line in currentFile:
-		if str(line.split('\t')[4]) == str(${params.H_TAXID}): 
+		if int(line.split('\t')[4]) in host_lineage: 
 			print('host filtered')
 			print(host_filtered_reads)
 			print('previous count')
