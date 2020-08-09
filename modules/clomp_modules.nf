@@ -1258,7 +1258,8 @@ for file in files:
 			print('here')
 			newline = line.replace(line.split('\t')[1], str(new_host_filter_count))
 			new_host_filter_count = False
-		with_host_file.write(newline)
+			line = newline
+		with_host_file.write(line)
 
 
 
