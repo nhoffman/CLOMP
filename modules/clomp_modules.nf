@@ -1075,6 +1075,7 @@ process generate_report {
       file "${base}_assigned.txt"
       file "*metagenome.fastq.gz"
       file "*.clompviz.tsv"
+      file "${base}.with_host_final_report.tsv"
     // Code to be executed inside the task
     script:
       """
@@ -1229,14 +1230,39 @@ for file in files:
 				print("warning: "+  str(int(line.split('\t')[4])) +  ' not found')
 				new_phylum = 'not_found'
 		if new_host_filter_count:
-			print('here')
+
 			newline = line.replace(line.split('\t')[1], str(new_host_filter_count))
-			print(newline)
+
 			new_host_filter_count = False
 		else:
 			newline = line.replace(line.split('\t')[3], str(new_phylum))
 		newFile.write(newline)
 
+
+# Writing just host filtered output 
+with_host_filename = "${base}" + ".with_host_final_report.tsv"
+new_host_filter_count = False
+for file in files: 
+	with_host_file = open(with_host_filename, "w")
+	currentFile = open(file)
+	for line in currentFile:
+		if int(line.split('\t')[4]) in host_lineage: 
+				print('host filtered')
+				print(host_filtered_reads)
+				print('previous count')
+				print(int(line.split('\t')[1]))
+				new_host_filter_count = int(host_filtered_reads) + int(line.split('\t')[1])
+				print('added count')
+				print(new_host_filter_count)
+		if new_host_filter_count:
+			print('here')
+			newline = line.replace(line.split('\t')[1], str(new_host_filter_count))
+			new_host_filter_count = False
+		with_host_file.write(newline)
+
+
+
+			
 
 """
 }
