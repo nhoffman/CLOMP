@@ -159,7 +159,7 @@ params.SNAP_BATCHSIZE = 20
 params.TIEBREAKING_CHUNKS = 2
 params.TAXDUMP_NODES = 's3://clomp-reference-data/tool_specific_data/CLOMP/clomp_viz/nodes.dmp'
 params.TAXDUMP_MERGED = 's3://clomp-reference-data/tool_specific_data/CLOMP/clomp_viz/merged.dmp'
-
+params.IGNORE_TAXA = "['99802','4558']"
 
 // Check to make sure that the required parameters have been set
 if (!params.INPUT_FOLDER){ exit 1, "Must provide folder containing input files with --INPUT_FOLDER" }
@@ -249,6 +249,7 @@ include CLOMP_summary from './modules/clomp_modules' params(
     EDIT_DISTANCE_OFFSET: params.EDIT_DISTANCE_OFFSET,
     BUILD_SAMS: params.BUILD_SAMS,
     SECOND_PASS: params.SECOND_PASS,
+    IGNORE_TAXA: params.IGNORE_TAXA
 )
 include generate_report from './modules/clomp_modules'
 
