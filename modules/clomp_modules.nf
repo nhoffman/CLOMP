@@ -711,8 +711,8 @@ def tie_break(taxid_list):
 		#percent = (i / total) * 100
 		#if(percent % 2 == 0):
 			#print(percent)
-		#if id[1] <= best_edit_distance and str(id[0]) != str('4558') and str(id[0]) != str('99802'):
-		if id[1] <= best_edit_distance and str(id[0]) not in ${params.IGNORE_TAXA}:
+		if id[1] <= best_edit_distance and str(id[0]) != str('4558') and str(id[0]) != str('99802'):
+		#if id[1] <= best_edit_distance and str(id[0]) not in ${params.IGNORE_TAXA}:
 			actual_taxid_list.append(id[0])
 	#No longer holding edit distances		
 	taxid_list = actual_taxid_list
