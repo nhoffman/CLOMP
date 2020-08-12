@@ -176,6 +176,7 @@ TRIMMOMATIC_JAR = file(params.TRIMMOMATIC_JAR_PATH)
 TRIMMOMATIC_ADAPTER = file(params.TRIMMOMATIC_ADAPTER_PATH)
 GENERATE_SUMMARY_SCRIPT = file("modules/summarize_run.r")
 SAM_SPLIT = file("${workflow.projectDir}/bin/sam_split.py")
+BLAST_UNASSIGNED_SCRIPT = file("${workflow.projectDir}/bin/blast_unassigned.py")
 TAXDUMP_NODES = file(params.TAXDUMP_NODES)
 TAXDUMP_MERGED = file(params.TAXDUMP_MERGED)
 
@@ -227,9 +228,14 @@ include filter_human_paired as filter_human_paired_second_pass from './modules/c
 )
 include bbMask_Single from './modules/clomp_modules' params(BBDUK_TRIM_OPTIONS: params.BBDUK_TRIM_OPTIONS)
 include deduplicate from './modules/clomp_modules'
+
 include snap_single from './modules/clomp_modules' params(SNAP_OPTIONS: params.SNAP_OPTIONS)
 include snap_paired from './modules/clomp_modules' params(SNAP_OPTIONS: params.SNAP_OPTIONS)
-include summarize_run from './modules/clomp_modules'
+include collect_results from './modules/clomp_modules'
+include collect_results_with_unassigned from './modules/clomp_modules'
+
+
+
 include CLOMP_summary from './modules/clomp_modules' params(
     BLAST_CHECK: params.BLAST_CHECK,
     BLAST_EVAL: params.BLAST_EVAL,
@@ -252,6 +258,7 @@ include CLOMP_summary from './modules/clomp_modules' params(
     IGNORE_TAXA: params.IGNORE_TAXA
 )
 include generate_report from './modules/clomp_modules'
+include blast_unassigned from './modules/clomp_modules'
 
 // Run the CLOMP workflow
 workflow {
@@ -439,6 +446,33 @@ workflow {
             TAXDUMP_MERGED,
             //filter_human_single.out[2]
         )
+        if(params.BLAST_CHECK){
+        blast_unassigned( 
+            generate_report.out[6],
+            params.BLAST_CHECK_DB,
+            BLAST_UNASSIGNED_SCRIPT,
+            KRAKEN_DB
+        )
+        collect_results_with_unassigned( 
+            generate_report.out[0].toList(), 
+            generate_report.out[1].toList(),
+            generate_report.out[2].toList(),
+            generate_report.out[3].toList(),
+            generate_report.out[4].toList(),
+            generate_report.out[5].toList(),
+            blast_unassigned.out.toList()
+            )
+        }else{
+        collect_results( 
+            generate_report.out[0].toList(), 
+            generate_report.out[1].toList(),
+            generate_report.out[2].toList(),
+            generate_report.out[3].toList(),
+            generate_report.out[4].toList(),
+            generate_report.out[5].toList()
+            )
+        }
+        
         // summarize_run( 
         //     generate_report.out[0].toList(), 
         //         generate_report.out[1].toList(), 
@@ -446,8 +480,8 @@ workflow {
         //         GENERATE_SUMMARY_SCRIPT
         // )
     }    
-    publish:
-    generate_report.out to: "${params.OUTDIR}"
+    //publish:
+    //collect_results.out to: "${params.OUTDIR}"
         //summarize_run.out to: "${params.OUTDIR}"
         //filter_human_single.out[1] to: "${params.OUTDIR}/logs/"
 }
