@@ -379,7 +379,7 @@ echo "Processing \$sample_name"
 mv ${r1} INPUT.${r1}
 
 echo "Reads before low complexity filtering "
-gzip -dc ${r1} | awk 'NR%4==2{c++} END{ print c;}'
+gzip -dc INPUT.${r1} | awk 'NR%4==2{c++} END{ print c;}'
 
 echo "Masking ${r1}"
 bbduk.sh \
@@ -653,6 +653,7 @@ process CLOMP_summary {
       tuple val(base), file(bam_file)
       file BLAST_CHECK_DB
       file "kraken_db/"
+      file TAXONOMY_DATABASE
     output:
       tuple val(base), file("${base}.*.temp_kraken.tsv")
       tuple val(base), file("*unassigned.txt")
@@ -665,6 +666,7 @@ process CLOMP_summary {
 #!/usr/bin/env python3
 
 print("Processing BAM file: ${bam_file}")
+
 import uuid
 import ast 
 import subprocess
@@ -677,7 +679,16 @@ from collections import Counter
 from ete3 import NCBITaxa
 import timeit
 from collections import defaultdict
-ncbi = NCBITaxa()
+
+subprocess.call('ls -latr', shell = True)
+
+
+
+ncbi = NCBITaxa(dbfile = 'taxa.sqlite')
+
+# add print statement for getlineage 9606
+print('here', flush = True)
+print(ncbi.get_lineage('9606'), flush = True)
 
 
 # Make a function to run a shell command and catch any errors
@@ -712,6 +723,7 @@ def tie_break(taxid_list):
 		#if(percent % 2 == 0):
 			#print(percent)
 		if id[1] <= best_edit_distance and str(id[0]) != str('4558') and str(id[0]) != str('99802'):
+		#if id[1] <= best_edit_distance and str(id[0]) not in ${params.IGNORE_TAXA}:
 			actual_taxid_list.append(id[0])
 	#No longer holding edit distances		
 	taxid_list = actual_taxid_list
@@ -788,10 +800,10 @@ def tie_break(taxid_list):
 	#Assign a Boolean value for each read as to whether it needs to be searched against a custom BLAST database
 	#Here, we are just assigning whether it needs to be searched or not.  The custom BLAST database would need to be made separately.
 	#All reads downstream of INCLUSION_TAXID and but not downstream of EXCLUSION_TAXID will be assigned a True value.
-	if "${params.BLAST_CHECK}" == "true":
-		assigned_lineage = ncbi.get_lineage(assigned_hit)
-		if ${params.INCLUSION_TAXID} in assigned_lineage and ${params.EXCLUSION_TAXID} not in assigned_lineage:
-			recheck = True
+	#if "${params.BLAST_CHECK}" == "true":
+	#	assigned_lineage = ncbi.get_lineage(assigned_hit)
+	#	if ${params.INCLUSION_TAXID} in assigned_lineage and ${params.EXCLUSION_TAXID} not in assigned_lineage:
+	#		recheck = True
 	
 	return [assigned_hit, recheck]
 
@@ -875,7 +887,7 @@ def build_sams(input_list):
 			taxid_lineage = ncbi.get_lineage(taxid)
 			# we walk up the taxonomy tree ASSEMBLY_NODE_OFFSET nodes and pull all reads that were taxonomically assigned at or below that node
 			taxid_to_pull = taxid_lineage[ASSEMBLY_NODE_OFFSET]
-			taxid_search_list = taxid_to_pull + ncbi.get_dsecendant_taxa(taxid_to_pull, intermediate_nodes = True)
+			taxid_search_list = taxid_to_pull + ncbi.get_descendant_taxa(taxid_to_pull, intermediate_nodes = True)
 			
 			header_list = []
 			seq_list = []
@@ -965,8 +977,8 @@ e = open("${base}_" + str(uuid.uuid4()) + '_unassigned.txt','w')
 unass_count = 0
 taxid_to_read_set = {}
 
-if "${params.BLAST_CHECK}" == "true":
-    z = open("${base}_recheck.txt", 'w')
+#if "${params.BLAST_CHECK}" == "true":
+#    z = open("${base}_recheck.txt", 'w')
 
 
 for read_key in read_to_taxids_map.keys():
@@ -1004,23 +1016,23 @@ for read_key in read_to_taxids_map.keys():
 
 g.close()
 e.close()
-if "${params.BLAST_CHECK}" == "true":
-    z.close()
-    subprocess_call('blastn -db ${BLAST_CHECK_DB} -task blastn -query ${base}_recheck.txt -num_threads 20 -evalue ${params.BLAST_EVAL} -outfmt "6 qseqid" -max_target_seqs 1 -max_hsps 1 > blast_check.txt')
-    redo_taxid_list = []
-    for line in open('blast_check.txt'):
-        redo_taxid_list.append(line.split())
-    n = open('new_assignments.txt', 'w')
-    for line in open("${base}" + '_assignments.txt'):
-        ll = line.split('\t')
-        if ll[0] in redo_taxid_list:
-            n.write(ll[0] + '\t' + DB_TAXID + '\t' + ll[2].strip() + '\\n')
-        else:
-            n.write(line)
-    n.close()
-    for item in redo_taxid_list:
-        final_assignment_counts[read_to_taxids_map[item]] += 1
-        final_assignment_counts[DB_TAXID] += 1
+#if "${params.BLAST_CHECK}" == "true":
+#    z.close()
+#    subprocess_call('blastn -db ${BLAST_CHECK_DB} -task blastn -query ${base}_recheck.txt -num_threads 20 -evalue ${params.BLAST_EVAL} -outfmt "6 qseqid" -max_target_seqs 1 -max_hsps 1 > blast_check.txt')
+#    redo_taxid_list = []
+#    for line in open('blast_check.txt'):
+#        redo_taxid_list.append(line.split())
+#    n = open('new_assignments.txt', 'w')
+#    for line in open("${base}" + '_assignments.txt'):
+#        ll = line.split('\t')
+#        if ll[0] in redo_taxid_list:
+#            n.write(ll[0] + '\t' + DB_TAXID + '\t' + ll[2].strip() + '\\n')
+#        else:
+#            n.write(line)
+#    n.close()
+#    for item in redo_taxid_list:
+#        final_assignment_counts[read_to_taxids_map[item]] += 1
+#        final_assignment_counts[DB_TAXID] += 1
     
 
 #For each sample, we make a folder and for every taxid, we create a FASTA file that are named by their taxid.  We lose the read ID in this file.  #nicetohave would be hold the read ID here.
@@ -1067,6 +1079,7 @@ process generate_report {
       file r1
       file NODES
       file MERGED
+      file TAXONOMY_DATABASE
       // val host_filtered_count
     // Define the output files
     output:
@@ -1076,6 +1089,7 @@ process generate_report {
       file "*metagenome.fastq.gz"
       file "*.clompviz.tsv"
       file "${base}.with_host_final_report.tsv"
+      tuple val(base), file("${base}_unassigned.txt")
     // Code to be executed inside the task
     script:
       """
@@ -1097,7 +1111,7 @@ import sys
 import string
 
 from collections import defaultdict
-ncbi = NCBITaxa()
+ncbi = NCBITaxa(dbfile = 'taxa.sqlite')
 
 host_lineage = ncbi.get_lineage(${params.H_TAXID})
 print(host_lineage)
@@ -1171,10 +1185,8 @@ subprocess.call("echo FILES  ;ls -latr",shell = True)
 # subprocess.call(" mv ${base}.fastq.gz ${base}.metagenome.fastq.gz",shell = True)
 subprocess.call(' x=`basename -s ".fastq.gz" *.fastq.gz` ; mv *.fastq.gz \$x.metagenome.fastq.gz',shell = True)
 
-### NEW 
 
-
-
+#Adding in phylum designations from nodes.dmp (replaces s/d/k/- with species/domain/kingdom/subspecies in *.clompviz.tsv report)
 nodes = open ('nodes.dmp')
 
 taxa = {} 
@@ -1184,14 +1196,8 @@ taxa[1] = 'cellular_organisms'
 
 for line in nodes: 
 	accession =  line.strip().split('\t|\t')
-	#if ' ' in accession[2] : 
-	#	print(accession[2].replace(' ', '_'))
 	ranks = accession[2].replace(" ", "_")
 	taxa[int(accession[0])] = ranks 
-
-#print(taxa[131567])
-#print(taxa[0])
-#print(taxa)
 
 # not all taxa are in nodes.dmp anymore 
 # some have been merged with other taxa. These are in merged.dmp
@@ -1268,7 +1274,42 @@ for file in files:
 """
 }
 
-process summarize_run { 
+process blast_unassigned { 
+
+    //Retry at most 3 times
+    errorStrategy 'retry'
+    maxRetries 3
+    
+    // Define the Docker container used for this step
+    container "quay.io/fhcrc-microbiome/clomp:v0.1.3"
+
+    // Define the input files
+    input:
+      tuple val(base), file(unassigned_file)
+      path BLAST_DB
+      file BLAST_UNASSIGNED_SCRIPT
+      file "kraken_db/"
+
+    // Define the output files
+    output:
+      file kraken_tsv_list
+
+    // Code to be executed inside the task
+    script:
+      """
+      #!/bin/bash
+      
+      ls -lah
+
+      python3 ${BLAST_UNASSIGNED_SCRIPT} ${base} ${unassigned_file} ${BLAST_DB} ${task.cpus} 1e-4
+
+      """
+
+
+}
+
+
+process collect_results { 
 
     //Retry at most 3 times
     errorStrategy 'retry'
@@ -1279,27 +1320,100 @@ process summarize_run {
 
     // Define the input files
     input:
-      file kraken_tsv_list
-      file unassigned_txt_list
-      file assigned_txt_list
-      file GENERATE_SUMMARY_SCRIPT
+      file final_reports
+      file unassigneds
+      file assigneds
+      file metagenomes
+      file clompviz_tsvs
+      file with_host_final_reports
+      
     // Define the output files
     output:
-      file kraken_tsv_list
-      file unassigned_txt_list
-      file assigned_txt_list
-      file "RPM_summary.csv"
+      file "pavian_input/"
+      file "metagenomes/"
+      file "clompviz/"
+      file "assigned"
 
     // Code to be executed inside the task
     script:
       """
       #!/bin/bash
       
-      echo ${kraken_tsv_list}
+      ls -lah
 
-      Rscript --vanilla ${GENERATE_SUMMARY_SCRIPT}
+      mkdir pavian_input
+      mkdir pavian_input/with_host
+      mkdir pavian_input/without_host
+      mkdir metagenomes
+      mkdir clompviz
+      mkdir assigned
+      #mkdir blast_checked
+
+      mv *with_host_final_report.tsv pavian_input/with_host
+
+      mv *_report.tsv pavian_input/without_host
+
+      mv *metagenome.fastq.gz metagenomes
+
+      mv *.clompviz.tsv clompviz
+
+      mv *_assigned.txt assigned
+
       """
-
-
 }
 
+process collect_results_with_unassigned { 
+
+    //Retry at most 3 times
+    errorStrategy 'retry'
+    maxRetries 3
+    
+    // Define the Docker container used for this step
+    container "quay.io/vpeddu/rgeneratesummary:latest"
+
+    // Define the input files
+    input:
+      file final_reports
+      file unassigneds
+      file assigneds
+      file metagenomes
+      file clompviz_tsvs
+      file with_host_final_reports
+      file unassigned_tsv
+      
+    // Define the output files
+    output:
+      file "pavian_input/"
+      file "metagenomes/"
+      file "clompviz/"
+      file "assigned"
+
+    // Code to be executed inside the task
+    script:
+      """
+      #!/bin/bash
+      
+      ls -lah
+
+      mkdir pavian_input
+      mkdir pavian_input/with_host
+      mkdir pavian_input/without_host
+      mkdir metagenomes
+      mkdir clompviz
+      mkdir assigned
+      mkdir unassigned_blast
+
+      mv *with_host_final_report.tsv pavian_input/with_host
+
+      mv *_report.tsv pavian_input/without_host
+
+      mv *metagenome.fastq.gz metagenomes
+
+      mv *.clompviz.tsv clompviz
+
+      mv *_assigned.txt assigned
+
+      mv *unassigned_report.tsv unassigned_blast
+
+      """
+}

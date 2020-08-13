@@ -159,6 +159,8 @@ params.SNAP_BATCHSIZE = 20
 params.TIEBREAKING_CHUNKS = 2
 params.TAXDUMP_NODES = 's3://clomp-reference-data/tool_specific_data/CLOMP/clomp_viz/nodes.dmp'
 params.TAXDUMP_MERGED = 's3://clomp-reference-data/tool_specific_data/CLOMP/clomp_viz/merged.dmp'
+params.IGNORE_TAXA = "['99802','4558']"
+params.TAXONOMY_DATABASE = 's3://clomp-reference-data/tool_specific_data/CLOMP/taxonomy_database/taxa.sqlite'
 
 
 // Check to make sure that the required parameters have been set
@@ -176,8 +178,11 @@ TRIMMOMATIC_JAR = file(params.TRIMMOMATIC_JAR_PATH)
 TRIMMOMATIC_ADAPTER = file(params.TRIMMOMATIC_ADAPTER_PATH)
 GENERATE_SUMMARY_SCRIPT = file("modules/summarize_run.r")
 SAM_SPLIT = file("${workflow.projectDir}/bin/sam_split.py")
+BLAST_UNASSIGNED_SCRIPT = file("${workflow.projectDir}/bin/blast_unassigned.py")
 TAXDUMP_NODES = file(params.TAXDUMP_NODES)
 TAXDUMP_MERGED = file(params.TAXDUMP_MERGED)
+TAXONOMY_DATABASE = file(params.TAXONOMY_DATABASE)
+
 
 if (params.BLAST_CHECK){
     if (!params.BLAST_CHECK_DB){ exit 1, "Must provide BLAST check database with --BLAST_CHECK_DB" }
@@ -227,9 +232,14 @@ include filter_human_paired as filter_human_paired_second_pass from './modules/c
 )
 include bbMask_Single from './modules/clomp_modules' params(BBDUK_TRIM_OPTIONS: params.BBDUK_TRIM_OPTIONS)
 include deduplicate from './modules/clomp_modules'
+
 include snap_single from './modules/clomp_modules' params(SNAP_OPTIONS: params.SNAP_OPTIONS)
 include snap_paired from './modules/clomp_modules' params(SNAP_OPTIONS: params.SNAP_OPTIONS)
-include summarize_run from './modules/clomp_modules'
+include collect_results from './modules/clomp_modules'
+include collect_results_with_unassigned from './modules/clomp_modules'
+
+
+
 include CLOMP_summary from './modules/clomp_modules' params(
     BLAST_CHECK: params.BLAST_CHECK,
     BLAST_EVAL: params.BLAST_EVAL,
@@ -249,8 +259,10 @@ include CLOMP_summary from './modules/clomp_modules' params(
     EDIT_DISTANCE_OFFSET: params.EDIT_DISTANCE_OFFSET,
     BUILD_SAMS: params.BUILD_SAMS,
     SECOND_PASS: params.SECOND_PASS,
+    IGNORE_TAXA: params.IGNORE_TAXA
 )
 include generate_report from './modules/clomp_modules'
+include blast_unassigned from './modules/clomp_modules'
 
 // Run the CLOMP workflow
 workflow {
@@ -420,7 +432,8 @@ workflow {
         CLOMP_summary(
             collect_snap_results.out.transpose(),
             BLAST_CHECK_DB,
-            KRAKEN_DB
+            KRAKEN_DB,
+            TAXONOMY_DATABASE
         )
         generate_report(
             CLOMP_summary.out[0].groupTuple(
@@ -436,8 +449,36 @@ workflow {
             filter_human_single.out[0],
             TAXDUMP_NODES,
             TAXDUMP_MERGED,
+            TAXONOMY_DATABASE
             //filter_human_single.out[2]
         )
+        if(params.BLAST_CHECK){
+        blast_unassigned( 
+            generate_report.out[6],
+            params.BLAST_CHECK_DB,
+            BLAST_UNASSIGNED_SCRIPT,
+            KRAKEN_DB
+        )
+        collect_results_with_unassigned( 
+            generate_report.out[0].toList(), 
+            generate_report.out[1].toList(),
+            generate_report.out[2].toList(),
+            generate_report.out[3].toList(),
+            generate_report.out[4].toList(),
+            generate_report.out[5].toList(),
+            blast_unassigned.out.toList()
+            )
+        }else{
+        collect_results( 
+            generate_report.out[0].toList(), 
+            generate_report.out[1].toList(),
+            generate_report.out[2].toList(),
+            generate_report.out[3].toList(),
+            generate_report.out[4].toList(),
+            generate_report.out[5].toList()
+            )
+        }
+        
         // summarize_run( 
         //     generate_report.out[0].toList(), 
         //         generate_report.out[1].toList(), 
@@ -445,8 +486,8 @@ workflow {
         //         GENERATE_SUMMARY_SCRIPT
         // )
     }    
-    publish:
-    generate_report.out to: "${params.OUTDIR}"
+    //publish:
+    //collect_results.out to: "${params.OUTDIR}"
         //summarize_run.out to: "${params.OUTDIR}"
         //filter_human_single.out[1] to: "${params.OUTDIR}/logs/"
 }
