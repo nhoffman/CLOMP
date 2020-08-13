@@ -687,8 +687,8 @@ subprocess.call('ls -latr', shell = True)
 ncbi = NCBITaxa(dbfile = 'taxa.sqlite')
 
 # add print statement for getlineage 9606
-print('here', flush = True)
-print(ncbi.get_lineage('9606'), flush = True)
+# print('here', flush = True)
+# print(ncbi.get_lineage('9606'), flush = True)
 
 
 # Make a function to run a shell command and catch any errors
@@ -1293,7 +1293,7 @@ process blast_unassigned {
 
     // Define the output files
     output:
-      file kraken_tsv_list
+      file "${base}_unassigned_report.tsv"
 
     // Code to be executed inside the task
     script:
@@ -1316,6 +1316,11 @@ process collect_results {
     errorStrategy 'retry'
     maxRetries 3
     
+
+    // Publish results to params.OUTDIR
+    publishDir "${params.OUTDIR}"
+
+
     // Define the Docker container used for this step
     container "quay.io/vpeddu/rgeneratesummary:latest"
 
@@ -1372,6 +1377,10 @@ process collect_results_with_unassigned {
     // Define the Docker container used for this step
     container "quay.io/vpeddu/rgeneratesummary:latest"
 
+    // Publish results to params.OUTDIR
+     publishDir "${params.OUTDIR}"
+
+
     // Define the input files
     input:
       file final_reports
@@ -1387,7 +1396,9 @@ process collect_results_with_unassigned {
       file "pavian_input/"
       file "metagenomes/"
       file "clompviz/"
-      file "assigned"
+      file "assigned/"
+      file "unassigned/"
+      file "unassigned_blast/"
 
     // Code to be executed inside the task
     script:
@@ -1402,7 +1413,10 @@ process collect_results_with_unassigned {
       mkdir metagenomes
       mkdir clompviz
       mkdir assigned
+      mkdir unassigned
       mkdir unassigned_blast
+
+      mv *_unassigned_report.tsv unassigned_blast
 
       mv *with_host_final_report.tsv pavian_input/with_host
 
@@ -1414,7 +1428,7 @@ process collect_results_with_unassigned {
 
       mv *_assigned.txt assigned
 
-      mv *unassigned_report.tsv unassigned_blast
+      mv *_unassigned.txt unassigned
 
       """
 }

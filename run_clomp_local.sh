@@ -8,9 +8,9 @@ nextflow run /Users/gerbix/Documents/vikas/CLOMP/CLOMP/main.nf \
 --TRIMMOMATIC_ADAPTER_PATH "s3://clomp-reference-data/tool_specific_data/CLOMP/adapters.fa" \
 --TRIMMOMATIC_JAR_PATH "s3://clomp-reference-data/tool_specific_data/CLOMP/trimmomatic-0.38.jar" \
 --KRAKEN_DB_PATH "s3://clomp-reference-data/tool_specific_data/CLOMP/kraken_db/" \
---INPUT_FOLDER "/Users/gerbix/Documents/vikas/CLOMP/CLOMP_validation/eukaryotic_pathogens/fungi_fake/wgsim/novaseq_model_attempt/" \
+--INPUT_FOLDER "/Users/gerbix/Documents/vikas/CLOMP/CLOMP_validation/eukaryotic_pathogens/fungi_fake/wgsim/novaseq_model_attempt/subsampled/" \
 --OUTDIR "/Users/gerbix/Documents/vikas/CLOMP/CLOMP_validation/eukaryotic_pathogens/fungi_fake/wgsim/local_clomp_output/" \
---BLAST_CHECK_DB "/Users/gerbix/Documents/vikas/scratch/db/nt" \
+--BLAST_CHECK_DB "/Users/gerbix/Documents/vikas/scratch/blast_db/" \
 --BLAST_CHECK "True" \
 -with-docker ubuntu:18.04 \
 -profile local \

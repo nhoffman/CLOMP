@@ -467,8 +467,10 @@ workflow {
             generate_report.out[3].toList(),
             generate_report.out[4].toList(),
             generate_report.out[5].toList(),
-            blast_unassigned.out.toList()
+            blast_unassigned.out[0].toList()
             )
+        // publish:
+        //     collect_results_with_unassigned.out to: "${params.OUTDIR}"
         }else{
         collect_results( 
             generate_report.out[0].toList(), 
@@ -478,6 +480,8 @@ workflow {
             generate_report.out[4].toList(),
             generate_report.out[5].toList()
             )
+        // publish:
+        //     collect_results.out to: "${params.OUTDIR}"
         }
         
         // summarize_run( 
@@ -487,8 +491,8 @@ workflow {
         //         GENERATE_SUMMARY_SCRIPT
         // )
     }    
-    //publish:
-    //collect_results.out to: "${params.OUTDIR}"
+    // publish:
+    // collect_results.out to: "${params.OUTDIR}"
         //summarize_run.out to: "${params.OUTDIR}"
         //filter_human_single.out[1] to: "${params.OUTDIR}/logs/"
 }
