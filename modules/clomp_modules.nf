@@ -1289,6 +1289,7 @@ process blast_unassigned {
       path BLAST_DB
       file BLAST_UNASSIGNED_SCRIPT
       file "kraken_db/"
+      file TAXONOMY_DATABASE
 
     // Define the output files
     output:

@@ -457,7 +457,8 @@ workflow {
             generate_report.out[6],
             params.BLAST_CHECK_DB,
             BLAST_UNASSIGNED_SCRIPT,
-            KRAKEN_DB
+            KRAKEN_DB,
+            TAXONOMY_DATABASE
         )
         collect_results_with_unassigned( 
             generate_report.out[0].toList(), 

@@ -11,7 +11,7 @@ from collections import Counter
 from ete3 import NCBITaxa
 import timeit
 from collections import defaultdict
-ncbi = NCBITaxa()
+ncbi = NCBITaxa(dbfile = 'taxa.sqlite')
 
 read_to_taxids_map = {}
 reads_seq_map = {}
