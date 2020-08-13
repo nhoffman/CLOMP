@@ -1353,7 +1353,7 @@ process collect_results {
       mkdir metagenomes
       mkdir clompviz
       mkdir assigned
-      #mkdir blast_checked
+      mkdir unassigned
 
       mv *with_host_final_report.tsv pavian_input/with_host
 
@@ -1364,6 +1364,8 @@ process collect_results {
       mv *.clompviz.tsv clompviz
 
       mv *_assigned.txt assigned
+      
+      mv *_unassigned.txt unassigned
 
       """
 }
