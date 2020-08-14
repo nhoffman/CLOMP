@@ -11,7 +11,6 @@ from collections import Counter
 from ete3 import NCBITaxa
 import timeit
 from collections import defaultdict
-ncbi = NCBITaxa(dbfile = 'taxa.sqlite')
 
 read_to_taxids_map = {}
 reads_seq_map = {}
@@ -32,7 +31,9 @@ if os.stat(filename).st_size == 0:
 else: 
     #fasta_file = '/Users/gerbix/Documents/vikas/scratch/test.fasta'
     #base = 'test'
+    print("Unassigned file not empty. Starting BLAST", flush = True)
     subprocess.call('blastn -db ' + blast_db +  '/nt -task blastn -query ' + base + '_unassigned.txt -num_threads ' +  cpus + ' -evalue ' + eval_cutoff + ' -outfmt "6 qseqid" -max_target_seqs 1 -max_hsps 1 > blast_check.txt', shell = True)
+    print("BLAST finished", flush = True)
 
     #for line in open('blast_check.txt'): 
 
