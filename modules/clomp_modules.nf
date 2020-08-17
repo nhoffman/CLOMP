@@ -1293,7 +1293,7 @@ process blast_unassigned {
 
     // Define the output files
     output:
-      file "${base}_unassigned_report.tsv"
+      file "${base}_unassigned_report.tsv" 
       file 'blast_check.txt'
 
     // Code to be executed inside the task

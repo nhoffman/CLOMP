@@ -34,7 +34,7 @@ else:
     print("Unassigned file not empty. Starting BLAST", flush = True)
     subprocess.call('blastn -db ' + blast_db +  '/nt -task blastn -query ' + base + '_unassigned.txt -num_threads ' +  cpus + ' -evalue ' + eval_cutoff + ' -outfmt "6 qseqid staxids  bitscore sacc evalue " -max_target_seqs 1 -max_hsps 1 > blast_check.txt', shell = True)
     print("BLAST finished", flush = True)
-
+    subprocess.call('ls - lah', shell = True)
     #for line in open('blast_check.txt'): 
 
     #fasta = open("${base}_unassigned.txt")
