@@ -475,7 +475,7 @@ workflow {
             generate_report.out[4].toList(),
             generate_report.out[5].toList(),
             blast_unassigned.out[0].toList(),
-            generate_coverage.out[0].toList()
+            generate_coverage.out[1].toList()
             )
         // publish:
         //     collect_results_with_unassigned.out to: "${params.OUTDIR}"
@@ -487,7 +487,7 @@ workflow {
             generate_report.out[3].toList(),
             generate_report.out[4].toList(),
             generate_report.out[5].toList(),
-            generate_coverage.out[0].toList()
+            generate_coverage.out[1].toList()
             )
         // publish:
         //     collect_results.out to: "${params.OUTDIR}"

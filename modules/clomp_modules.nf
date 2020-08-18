@@ -655,6 +655,7 @@ process generate_coverage {
     // Define the output files
     output:
       tuple val(base), file("*depth.txt")
+      file "${base}.depth.txt"
 
     // Code to be executed inside the task
     script:
@@ -1386,6 +1387,7 @@ process collect_results {
       file metagenomes
       file clompviz_tsvs
       file with_host_final_reports
+      file depth_files
       
     // Define the output files
     output:
@@ -1450,6 +1452,7 @@ process collect_results_with_unassigned {
       file clompviz_tsvs
       file with_host_final_reports
       file unassigned_tsv
+      file depth_files
       
     // Define the output files
     output:
