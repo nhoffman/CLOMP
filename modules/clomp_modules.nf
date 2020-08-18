@@ -639,6 +639,50 @@ rm ${base}.sam
 """
 }
 
+process generate_coverage {
+
+    // Retry at most 3 times
+    //errorStrategy 'retry'
+    //maxRetries 3
+    
+    // Define the Docker container used for this step
+    container "quay.io/vpeddu/clomp_containers:latest"
+
+    // Define the input files
+    input:
+      tuple val(base), file(bam_list)
+
+    // Define the output files
+    output:
+      tuple val(base), file("*depth.txt")
+
+    // Code to be executed inside the task
+    script:
+      """
+      #!/bin/bash
+      
+
+      # logging statement  
+      ls -lah 
+
+      echo "sorting"
+
+      for i in *.bam 
+      do
+      samtools sort -@ ${task.cpus} -o \$i.sorted.bam \$i
+      done
+
+      echo "merging"
+      samtools merge ${base}.merged.bam *.sorted.bam 
+
+
+      echo "creating depth file"
+      samtools depth ${base}.merged.bam > ${base}.depth.txt
+
+"""
+}
+
+
 process CLOMP_summary {
 
     // Retry at most 3 times
@@ -1305,7 +1349,14 @@ process blast_unassigned {
 
       python3 ${BLAST_UNASSIGNED_SCRIPT} ${base} ${unassigned_file} ${BLAST_DB} ${task.cpus} 1e-4
 
+
+      if [ -s "${base}_unassigned_report.tsv" ]
+      then
       /usr/local/miniconda/bin/krakenuniq-report --db kraken_db --taxon-counts unassigned_temp_kraken.tsv > ${base}_unassigned_report.tsv
+      else 
+      echo "Unassigned file empty did not generate report" ; touch blast_check.txt
+      fi
+
 
       """
 
@@ -1342,6 +1393,7 @@ process collect_results {
       file "metagenomes/"
       file "clompviz/"
       file "assigned"
+      file "depth_files/"
 
     // Code to be executed inside the task
     script:
@@ -1357,6 +1409,7 @@ process collect_results {
       mkdir clompviz
       mkdir assigned
       mkdir unassigned
+      mkdir depth_files
 
       mv *with_host_final_report.tsv pavian_input/with_host
 
@@ -1369,6 +1422,8 @@ process collect_results {
       mv *_assigned.txt assigned
 
       mv *_unassigned.txt unassigned
+
+      mv *.depth.txt depth_files
 
       """
 }
@@ -1404,7 +1459,7 @@ process collect_results_with_unassigned {
       file "assigned/"
       file "unassigned/"
       file "unassigned_blast/"
-
+      file "depth_files/"
     // Code to be executed inside the task
     script:
       """
@@ -1420,6 +1475,8 @@ process collect_results_with_unassigned {
       mkdir assigned
       mkdir unassigned
       mkdir unassigned_blast
+      mkdir depth_files
+
 
       mv *_unassigned_report.tsv unassigned_blast
 
@@ -1434,6 +1491,8 @@ process collect_results_with_unassigned {
       mv *_assigned.txt assigned
 
       mv *_unassigned.txt unassigned
+
+      mv *.depth.txt depth_files
 
       """
 }

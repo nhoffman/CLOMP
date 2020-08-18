@@ -237,6 +237,7 @@ include snap_single from './modules/clomp_modules' params(SNAP_OPTIONS: params.S
 include snap_paired from './modules/clomp_modules' params(SNAP_OPTIONS: params.SNAP_OPTIONS)
 include collect_results from './modules/clomp_modules'
 include collect_results_with_unassigned from './modules/clomp_modules'
+include generate_coverage from './modules/clomp_modules'
 
 
 
@@ -428,6 +429,12 @@ workflow {
             }.groupTuple(),
             SAM_SPLIT
         )
+        
+        generate_coverage(
+            snap_single.out.flatten().map{
+                it -> [it.name.split("__")[0], it]
+            }.groupTuple()
+        )
 
         CLOMP_summary(
             collect_snap_results.out.transpose(),
@@ -467,7 +474,8 @@ workflow {
             generate_report.out[3].toList(),
             generate_report.out[4].toList(),
             generate_report.out[5].toList(),
-            blast_unassigned.out[0].toList()
+            blast_unassigned.out[0].toList(),
+            generate_coverage.out[0].toList()
             )
         // publish:
         //     collect_results_with_unassigned.out to: "${params.OUTDIR}"
@@ -478,7 +486,8 @@ workflow {
             generate_report.out[2].toList(),
             generate_report.out[3].toList(),
             generate_report.out[4].toList(),
-            generate_report.out[5].toList()
+            generate_report.out[5].toList(),
+            generate_coverage.out[0].toList()
             )
         // publish:
         //     collect_results.out to: "${params.OUTDIR}"
