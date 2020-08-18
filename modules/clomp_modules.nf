@@ -673,12 +673,20 @@ process generate_coverage {
       samtools sort -@ ${task.cpus} -o \$i.sorted.bam \$i
       done
 
-      echo "merging"
-      samtools merge ${base}.merged.bam *.sorted.bam 
+      #echo "merging"
+      #samtools merge ${base}.merged.bam *.sorted.bam 
+
+        
+      echo "creating depth file"
+      for i in *.sorted.bam 
+      do
+      samtools depth \$i > \$i.depth.txt
+      done
+      
 
 
       echo "creating depth file"
-      samtools depth ${base}.merged.bam > ${base}.depth.txt
+      cat *.depth.txt > ${base}.depth.txt
 
 """
 }
