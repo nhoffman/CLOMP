@@ -1305,6 +1305,8 @@ process blast_unassigned {
 
       python3 ${BLAST_UNASSIGNED_SCRIPT} ${base} ${unassigned_file} ${BLAST_DB} ${task.cpus} 1e-4
 
+      /usr/local/miniconda/bin/krakenuniq-report --db kraken_db --taxon-counts unassigned_temp_kraken.tsv > ${base}_unassigned_report.tsv
+
       """
 
 

@@ -69,7 +69,7 @@ else:
         taxid_counts[taxid] = count
 
 
-    temp_filename = base + 'unassigned_temp_kraken.tsv'
+    temp_filename = 'unassigned_temp_kraken.tsv'
 
     l = open(temp_filename, 'w')
 
@@ -82,7 +82,7 @@ else:
         l.write('\n' + str(key) + '\t' + str(taxid_counts[key]))
 
     # generate pavian report
-    final_filename = base + 'unassigned_report.tsv'
-    kraken_report_cmd = '/usr/local/miniconda/bin/krakenuniq-report --db kraken_db --taxon-counts ' + temp_filename + ' > ' + final_filename
+    #final_filename = base + 'unassigned_report.tsv'
+    #kraken_report_cmd = '/usr/local/miniconda/bin/krakenuniq-report --db kraken_db --taxon-counts ' + temp_filename + ' > ' + final_filename
 
-    subprocess.call(kraken_report_cmd, shell = True)
+    #subprocess.call(kraken_report_cmd, shell = True)
