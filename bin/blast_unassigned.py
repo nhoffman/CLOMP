@@ -56,7 +56,7 @@ else:
 
 
     reassigned = {}
-    for line in open(fasta_file):
+    for line in open('blast_check.txt'):
         current_line = line.split()
         reassigned[current_line[0]] = str(current_line[1])
 
