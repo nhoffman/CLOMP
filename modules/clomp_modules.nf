@@ -682,7 +682,7 @@ process generate_coverage {
       do
       samtools depth \$i > \$i.depth.txt
       done
-      
+
 
 
       echo "creating depth file"
@@ -1359,12 +1359,12 @@ process blast_unassigned {
       python3 ${BLAST_UNASSIGNED_SCRIPT} ${base} ${unassigned_file} ${BLAST_DB} ${task.cpus} 1e-4
 
 
-      if [ -s "${base}_unassigned_report.tsv" ]
-      then
+      #if [ -s "${base}_unassigned_report.tsv" ]
+      #then
       /usr/local/miniconda/bin/krakenuniq-report --db kraken_db --taxon-counts unassigned_temp_kraken.tsv > ${base}_unassigned_report.tsv
-      else 
-      echo "Unassigned file empty did not generate report" ; touch blast_check.txt
-      fi
+      #else 
+      #echo "Unassigned file empty did not generate report" ; touch blast_check.txt
+      #fi
 
 
       """
