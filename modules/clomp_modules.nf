@@ -1404,6 +1404,7 @@ process collect_results {
       file "clompviz/"
       file "assigned"
       file "depth_files/"
+      file "unassigned/"
 
     // Code to be executed inside the task
     script:
