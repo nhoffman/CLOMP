@@ -177,7 +177,7 @@ if (!params.OUTDIR.endsWith("/")){
 TRIMMOMATIC_JAR = file(params.TRIMMOMATIC_JAR_PATH)
 TRIMMOMATIC_ADAPTER = file(params.TRIMMOMATIC_ADAPTER_PATH)
 GENERATE_SUMMARY_SCRIPT = file("modules/summarize_run.r")
-SAM_SPLIT = file("${workflow.projectDir}/bin/sam_split.py")
+SAM_SPLIT = file("${workflow.projectDir}/bin/split_sam.sh")
 BLAST_UNASSIGNED_SCRIPT = file("${workflow.projectDir}/bin/blast_unassigned.py")
 TAXDUMP_NODES = file(params.TAXDUMP_NODES)
 TAXDUMP_MERGED = file(params.TAXDUMP_MERGED)

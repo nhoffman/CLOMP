@@ -616,7 +616,7 @@ ls -lah
 
 echo "splitting ${base} pseudosam"
 
-python3 ${SAM_SPLIT} ${base}.sorted.sam ${params.TIEBREAKING_CHUNKS} ${base}
+#python3 ${SAM_SPLIT} ${base}.sorted.sam ${params.TIEBREAKING_CHUNKS} ${base}
 
 #linenum=`cat ${base}.sam | wc -l`
 
@@ -630,6 +630,9 @@ python3 ${SAM_SPLIT} ${base}.sorted.sam ${params.TIEBREAKING_CHUNKS} ${base}
 #echo "lines to split: "\$splitnum 
 
 #cat ${base}.sam | split -l \$splitnum - ${base}
+
+./${SAM_SPLIT} ${base}
+
 
 mv ${base}.sorted.sam sortedsam.sam
 rm ${base}.sam
