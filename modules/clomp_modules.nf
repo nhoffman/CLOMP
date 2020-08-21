@@ -578,7 +578,8 @@ process collect_snap_results {
     
     // Define the Docker container used for this step
     container "quay.io/vpeddu/clomp_containers:latest"
-
+    containerOptions = "--user root"
+    
     // Define the input files
     input:
       tuple val(base), file(bam_list)
