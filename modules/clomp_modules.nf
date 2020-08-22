@@ -632,12 +632,12 @@ echo "splitting ${base} pseudosam"
 
 #cat ${base}.sam | split -l \$splitnum - ${base}
 
-linenum=`cat sorted.sam | wc -l`
+linenum=`cat ${base}.sorted.sam | wc -l`
 splitnum=`echo \$(( \$linenum / 6 ))`
 
 echo "lines to split: "\$splitnum 
 
-split -d -a 3  -l \$splitnum sorted.sam ${base}
+split -d -a 3  -l \$splitnum ${base}.sorted.sam ${base}
 
 basename=${base}
 
