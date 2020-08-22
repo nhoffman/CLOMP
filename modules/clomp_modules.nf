@@ -663,7 +663,7 @@ fixSplit() {
         echo "Done."
 }
 
-for i in \$(seq 0 $total); do fixSplit & done
+for i in \$(seq 0 \$total); do fixSplit & done
 
 wait
 
