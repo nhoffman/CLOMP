@@ -649,7 +649,7 @@ total=\${#files[@]}
 total=\$((total-2))
 
 echo "basename "\$basename
-echo "total "$total
+echo "total "\$total
 
 fixSplit() {
         inum=\$(printf %03d \$i)
