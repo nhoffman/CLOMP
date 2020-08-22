@@ -587,7 +587,7 @@ process collect_snap_results {
 
     // Define the output files
     output:
-      tuple val(base), file("${base}*")
+      tuple val(base), file("${base}.split.*")
 
     // Code to be executed inside the task
     script:
@@ -617,7 +617,7 @@ ls -lah
 
 echo "splitting ${base} pseudosam"
 
-#python3 ${SAM_SPLIT} ${base}.sorted.sam ${params.TIEBREAKING_CHUNKS} ${base}
+#python3 ${SAM_SPLIT} ${base}.sorted.sam ${params.TIEBREAKING_CHUNKS} ${base}.split.
 
 #linenum=`cat ${base}.sam | wc -l`
 
@@ -633,11 +633,14 @@ echo "splitting ${base} pseudosam"
 #cat ${base}.sam | split -l \$splitnum - ${base}
 
 linenum=`cat ${base}.sorted.sam | wc -l`
-splitnum=`echo \$(( \$linenum / 6 ))`
+splitnum=`echo \$(( \$linenum / ${params.TIEBREAKING_CHUNKS} ))`
 
 echo "lines to split: "\$splitnum 
 
 split -d -a 3  -l \$splitnum ${base}.sorted.sam ${base}
+
+echo "ls after split"
+ls -latr
 
 basename=${base}
 
