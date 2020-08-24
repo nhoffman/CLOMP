@@ -632,7 +632,7 @@ echo \$files
 total=`ls ${base}0* | wc -l`
 
 # total=\${#files[@]}
-total=\$((total-1))
+total=\$((total-2))
 
 echo "basename "\$basename
 echo "total "\$total
