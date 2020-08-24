@@ -587,7 +587,7 @@ process collect_snap_results {
 
     // Define the output files
     output:
-      tuple val(base), file("${base}.split.*")
+      tuple val(base), file("${base}0*")
 
     // Code to be executed inside the task
     script:
