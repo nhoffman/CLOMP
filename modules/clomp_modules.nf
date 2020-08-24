@@ -598,11 +598,7 @@ set -e
 
 # For logging and debugging, list all of the files in the working directory
 ls -lahtr
-#bamcount=0
-#tempcount=0
 
-#for i in *.bam; do echo \$i ; tempcount=\$(samtools view -c \$i); \$bamcount=\$((\$bamcount ; done
-#for i in *.bam; do echo \$i ; tempcount=\$(samtools view -c \$i); \$bamcount=\$((\$bamcount + \$tempcount)); done
 
 echo "Merging BAM files for ${base}"
 
@@ -616,21 +612,6 @@ echo "ls after sort"
 ls -lah
 
 echo "splitting ${base} pseudosam"
-
-#python3 ${SAM_SPLIT} ${base}.sorted.sam ${params.TIEBREAKING_CHUNKS} ${base}.split.
-
-#linenum=`cat ${base}.sam | wc -l`
-
-#echo "lines: " \$linenum
-
-#echo  "tiebreaking chunks: " ${params.TIEBREAKING_CHUNKS}
-
-#splitnum=`echo \$(( \$linenum / ${task.cpus} ))`
-#splitnum=`echo \$(( \$linenum / ${params.TIEBREAKING_CHUNKS} ))`
-
-#echo "lines to split: "\$splitnum 
-
-#cat ${base}.sam | split -l \$splitnum - ${base}
 
 linenum=`cat ${base}.sorted.sam | wc -l`
 splitnum=`echo \$(( \$linenum / ${params.TIEBREAKING_CHUNKS} ))`
@@ -648,7 +629,9 @@ files=(\$basename*)
 
 echo \$files
 
-total=\${#files[@]}
+total=`ls ${base}_0* | wc -l`
+
+# total=\${#files[@]}
 total=\$((total-2))
 
 echo "basename "\$basename
