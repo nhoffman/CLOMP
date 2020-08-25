@@ -665,8 +665,8 @@ wait
 mv ${base}.sorted.sam sortedsam.sam
 rm ${base}.sam
 
-# remove files of size zero
-find . -name ${base}0* -size  0 -print -delete
+# remove files of size zero. This happens when all of the records from the last file should be in the second to last file. 
+find . -name "${base}0*" -size  0 -print -delete
 
 """
 }
