@@ -228,7 +228,7 @@ samtools view -@ ${task.cpus} -f 4 \${sample_name}_mappedBam | \
 readsafter=`gzip -dc ${r1} | awk 'NR%4==2{c++} END{ print c;}'`
 echo "\$readsafter Reads after host filtering "
 
-
+# Reads lost in host filtering
 difference=\$((\$readsbefore-\$readsafter))
 
 echo "host filtered \$difference reads"
@@ -401,6 +401,7 @@ gzip -dc ${r1} | awk 'NR%4==2{c++} END{ print c;}'
 """
 }
 
+// Not being used anymore
 process deduplicate { 
 
     // Retry at most 3 times
@@ -529,14 +530,16 @@ ls -lahtr
 # Free space in directory 
 df -h 
 
+#Crashes and retries if samples aren't downloaded to worker correctly 
 for fp in ${r1_list}; do
   echo Checking to make sure that \$fp was downloaded to the worker
   [[ -s \$fp ]]
 done
 
-ls -lh ${SNAP_DB}/
+# Logging ls 
+ls -lah ${SNAP_DB}/
 
-
+# Makes sure snap databases are downloaded correctly
 echo Checking to make sure that the full database is available at ${SNAP_DB}
 #[[ -f ${SNAP_DB}/GenomeIndexHash ]]
 #[[ -f ${SNAP_DB}/OverflowTable ]]
@@ -618,6 +621,7 @@ splitnum=`echo \$(( \$linenum / ${params.TIEBREAKING_CHUNKS} ))`
 
 echo "lines to split: "\$splitnum 
 
+# split files by splitnum number of lines
 split -d -a 3  -l \$splitnum ${base}.sorted.sam ${base}
 
 echo "ls after split"
@@ -629,6 +633,7 @@ files=(\$basename*)
 
 echo \$files
 
+# number of files made in split
 total=`ls ${base}0* | wc -l`
 
 # total=\${#files[@]}
@@ -637,6 +642,8 @@ total=\$((total-2))
 echo "basename "\$basename
 echo "total "\$total
 
+# Michelle's split command
+# Checks head/tail of each file to check record boundaries 
 fixSplit() {
         inum=\$(printf %03d \$i)
         last_record=\$(tail -1 \$basename\$inum | cut -f1)
@@ -653,10 +660,13 @@ for i in \$(seq 0 \$total); do fixSplit & done
 
 wait
 
+
+# removing to avoid output collisions 
 mv ${base}.sorted.sam sortedsam.sam
 rm ${base}.sam
 
-
+# remove files of size zero
+find . -name ${base}0* -size  0 -print -delete
 
 """
 }
