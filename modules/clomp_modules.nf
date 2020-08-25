@@ -591,7 +591,7 @@ process collect_snap_results {
     // Define the output files
     output:
       tuple val(base), file("${base}0*")
-
+      file "sortedsam.sam"
     // Code to be executed inside the task
     script:
       """
