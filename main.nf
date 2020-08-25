@@ -412,6 +412,7 @@ workflow {
                 trimmomatic_single.out,
                 TRIMMOMATIC_ADAPTER
                 )
+            // Removed deduplication 
             // if ( params.DEDUPE ){ 
             // deduplicate(
             //     //bbMask_Single.out
@@ -422,6 +423,8 @@ workflow {
             //     BWT_FILES
             //     )
             // } else { 
+
+            // Host filtering with bowtie2 
             filter_human_single(
                 //bbMask_Single.out,
                 //bbMask_Single.out,
@@ -432,6 +435,7 @@ workflow {
             )
 
             // }
+            // A max of params.SNAP_BATCHSIZE samples will be aligned to each database before spawning a new database to align against
             snap_single(
                 filter_human_single.out[0].toSortedList().flatten().collate(params.SNAP_BATCHSIZE),
                 SNAP_INDEXES_CH
@@ -439,6 +443,7 @@ workflow {
             )
         }
 
+        // Collect snap results into giant SAM and split for tiebreaking 
         collect_snap_results(
             snap_single.out.flatten().map{
                 it -> [it.name.split("__")[0], it]
@@ -446,18 +451,21 @@ workflow {
             SAM_SPLIT
         )
         
+        // Generate coverage for each accession in the SNAP results using samtools depth
         generate_coverage(
             snap_single.out.flatten().map{
                 it -> [it.name.split("__")[0], it]
             }.groupTuple()
         )
 
+        // Tiebreaking logic 
         CLOMP_summary(
             collect_snap_results.out.transpose(),
             BLAST_CHECK_DB,
             KRAKEN_DB,
             TAXONOMY_DATABASE
         )
+        // Combines temp_kraken tsv files and writes final pavian report 
         generate_report(
             CLOMP_summary.out[0].groupTuple(
             ).join(
@@ -475,6 +483,8 @@ workflow {
             TAXONOMY_DATABASE
             //filter_human_single.out[2]
         )
+
+        // If true runs all unassigned reads against local BLASTn and keeps only top hit with evalue < 1e-4
         if(params.BLAST_CHECK){
         blast_unassigned( 
             generate_report.out[6],
@@ -483,6 +493,8 @@ workflow {
             KRAKEN_DB,
             TAXONOMY_DATABASE
         )
+
+        // Collect all results and move format into output folder structure 
         collect_results_with_unassigned( 
             generate_report.out[0].toList(), 
             generate_report.out[1].toList(),
@@ -496,6 +508,8 @@ workflow {
         // publish:
         //     collect_results_with_unassigned.out to: "${params.OUTDIR}"
         }else{
+
+        // Collect all results and move format into output folder structure 
         collect_results( 
             generate_report.out[0].toList(), 
             generate_report.out[1].toList(),
@@ -505,19 +519,6 @@ workflow {
             generate_report.out[5].toList(),
             generate_coverage.out[1].toList()
             )
-        // publish:
-        //     collect_results.out to: "${params.OUTDIR}"
         }
-        
-        // summarize_run( 
-        //     generate_report.out[0].toList(), 
-        //         generate_report.out[1].toList(), 
-        //         generate_report.out[2].toList(),
-        //         GENERATE_SUMMARY_SCRIPT
-        // )
     }    
-    // publish:
-    // collect_results.out to: "${params.OUTDIR}"
-        //summarize_run.out to: "${params.OUTDIR}"
-        //filter_human_single.out[1] to: "${params.OUTDIR}/logs/"
 }
