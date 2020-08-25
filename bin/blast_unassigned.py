@@ -61,7 +61,7 @@ else:
         reassigned[current_line[0]] = str(current_line[1])
 
     unique_taxids = set(reassigned.values())
-    print(unique_taxids)
+    #print(unique_taxids)
 
     taxid_counts = {} 
     for taxid in unique_taxids: 
@@ -78,7 +78,7 @@ else:
     l.write('0\t' + str(still_unassigned_count))
     # write the rest of the taxids to the file
     for key in taxid_counts.keys():
-        print(key)
+        #print(key)
         l.write('\n' + str(key) + '\t' + str(taxid_counts[key]))
 
     # generate pavian report
