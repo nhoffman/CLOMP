@@ -121,12 +121,16 @@ if (params.help){
 // These values are overridden by what the user specifies (e.g. with --R1)
 params.INPUT_FOLDER = false
 params.INPUT_SUFFIX = ".fastq.gz"
+// Paired end hasn't been tested since the first version of the nextflow script
 params.PAIRED_END = false
 params.OUTDIR = false
+// There was talk about making the bucke that hosts these open to public (our data stays private of course) but I don't think it ever happened
 params.SNAP_INDEXES = "s3://fh-ctr-public-reference-data/tool_specific_data/CLOMP/full_clomp_db/nt.00/,s3://fh-ctr-public-reference-data/tool_specific_data/CLOMP/full_clomp_db/nt.01/,s3://fh-ctr-public-reference-data/tool_specific_data/CLOMP/full_clomp_db/nt.02/,s3://fh-ctr-public-reference-data/tool_specific_data/CLOMP/full_clomp_db/nt.03/,s3://fh-ctr-public-reference-data/tool_specific_data/CLOMP/full_clomp_db/nt.04/,s3://fh-ctr-public-reference-data/tool_specific_data/CLOMP/full_clomp_db/nt.05/,s3://fh-ctr-public-reference-data/tool_specific_data/CLOMP/full_clomp_db/nt.06/,s3://fh-ctr-public-reference-data/tool_specific_data/CLOMP/full_clomp_db/nt.07/,s3://fh-ctr-public-reference-data/tool_specific_data/CLOMP/full_clomp_db/nt.08/,s3://fh-ctr-public-reference-data/tool_specific_data/CLOMP/full_clomp_db/nt.09/,s3://fh-ctr-public-reference-data/tool_specific_data/CLOMP/full_clomp_db/nt.10/,s3://fh-ctr-public-reference-data/tool_specific_data/CLOMP/full_clomp_db/nt.11/,s3://fh-ctr-public-reference-data/tool_specific_data/CLOMP/full_clomp_db/nt.12/,s3://fh-ctr-public-reference-data/tool_specific_data/CLOMP/full_clomp_db/nt.13/" 
+// Defaults from python CLOMP
 params.SNAP_OPTIONS = "-mrl 65 -d 9 -h 30000 -om 1 -omax 20"
 params.HOST_FILTER_FIRST = false
 params.SECOND_PASS = false
+// Defaults from python clomp
 params.TRIMMOMATIC_OPTIONS = ':2:30:10 HEADCROP:10 SLIDINGWINDOW:4:20 CROP:65 MINLEN:65'
 params.BBDUK_TRIM_OPTIONS = 'ktrim=r k=27 hdist=1 edist=0 mink=4 qtrim=rl trimq=6 minlength=65 ordered=t qin=33'
 params.TRIMMOMATIC_JAR_PATH = "s3://fh-ctr-public-reference-data/tool_specific_data/CLOMP/trimmomatic-0.38.jar"
@@ -136,6 +140,7 @@ params.BWT_DB_PREFIX = "hg38"
 params.BWT_DB_LOCATION = "s3://fh-ctr-public-reference-data/tool_specific_data/CLOMP/hg38/"
 params.BWT_SECOND_PASS_OPTIONS = '-D 35 -R 5 -N 1 -L 19 -i S,1,0.50'
 params.BLAST_EVAL = 0.001
+// Off by default because it adds a few hours to runtime 
 params.BLAST_CHECK = false
 params.DEDUPE = false
 params.BLAST_CHECK_DB = "s3://clomp-reference-data/tool_specific_data/CLOMP/blast_db/"
@@ -155,7 +160,9 @@ params.HOST_FILTER_TAXID = 9606
 params.WRITE_UNIQUES = true
 params.EDIT_DISTANCE_OFFSET = 6
 params.BUILD_SAMS = false
+// Increase to align more samples within each snap database 
 params.SNAP_BATCHSIZE = 20
+// Controls number of parallel tiebreaking chunks 
 params.TIEBREAKING_CHUNKS = 4
 params.TAXDUMP_NODES = 's3://clomp-reference-data/tool_specific_data/CLOMP/clomp_viz/nodes.dmp'
 params.TAXDUMP_MERGED = 's3://clomp-reference-data/tool_specific_data/CLOMP/clomp_viz/merged.dmp'
@@ -173,7 +180,10 @@ if (!params.OUTDIR.endsWith("/")){
     params.OUTDIR = "${params.OUTDIR}/"
 }
 
-// Identify some resource files
+/* 
+ Identify some resource files 
+ */
+
 TRIMMOMATIC_JAR = file(params.TRIMMOMATIC_JAR_PATH)
 TRIMMOMATIC_ADAPTER = file(params.TRIMMOMATIC_ADAPTER_PATH)
 GENERATE_SUMMARY_SCRIPT = file("modules/summarize_run.r")
@@ -348,6 +358,10 @@ workflow {
             KRAKEN_DB
         )
     } else {
+    /* 
+     Begin single end logic
+     */ 
+
         input_read_ch = Channel
             .fromPath("${params.INPUT_FOLDER}*${params.INPUT_SUFFIX}")
             .ifEmpty { error "Cannot find any FASTQ pairs in ${params.INPUT_FOLDER} ending with ${params.INPUT_SUFFIX}" }
@@ -385,13 +399,15 @@ workflow {
                 )
             }
         } else {
-            //Trimmomatic depracated. Using BBDuk for quality filtering, adapter trimming, and entropy filtering 
-
+            // Adapter and quality trimming with trimmomatic (params.TRIMMOMATIC_OPTIONS)
             trimmomatic_single(
               validate_single.out,
               TRIMMOMATIC_JAR,
               TRIMMOMATIC_ADAPTER
             )
+
+            // Using bbMask for FASTQ level low entropy filtering. 
+            // TODO: Fine tune with actual entropy scores 
             bbMask_Single(
                 trimmomatic_single.out,
                 TRIMMOMATIC_ADAPTER
