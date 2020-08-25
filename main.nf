@@ -460,7 +460,7 @@ workflow {
 
         // Tiebreaking logic 
         CLOMP_summary(
-            collect_snap_results.out.transpose(),
+            collect_snap_results.out[0].transpose(),
             BLAST_CHECK_DB,
             KRAKEN_DB,
             TAXONOMY_DATABASE
