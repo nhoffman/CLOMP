@@ -1034,7 +1034,7 @@ for line in  open(bam_file):
             current_read_taxid = [snap_assignment_of_current_read,100]
         else:
             #Pull the taxid and the edit distance from each line.
-            print(line)
+            #print(line)
             current_read_taxid = [snap_assignment_of_current_read.split('#')[-1],
                 int(line_list[17].split(':')[-1])]
         #Create map for each sample.
@@ -1389,15 +1389,12 @@ process blast_unassigned {
       
       ls -lah
 
+      # script to BLAST unassigned reads
       python3 ${BLAST_UNASSIGNED_SCRIPT} ${base} ${unassigned_file} ${BLAST_DB} ${task.cpus} 1e-4
 
-
-      #if [ -s "${base}_unassigned_report.tsv" ]
-      #then
+      # report generation command 
       /usr/local/miniconda/bin/krakenuniq-report --db kraken_db --taxon-counts unassigned_temp_kraken.tsv > ${base}_unassigned_report.tsv
-      #else 
-      #echo "Unassigned file empty did not generate report" ; touch blast_check.txt
-      #fi
+
 
 
       """
