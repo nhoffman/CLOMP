@@ -1,3 +1,5 @@
+# Python script to run blast on unassigned reads. 
+# Takes only the top hit with evalue < 1e-4 and writes into a pavian report
 import sys
 import uuid
 import ast 
@@ -14,30 +16,33 @@ from collections import defaultdict
 
 read_to_taxids_map = {}
 reads_seq_map = {}
-#z = open("${base}_unassigned.txt", 'w')
 
 
+#basename
 base = sys.argv[1]
+#unassigned reads fasta file
 fasta_file = sys.argv[2]
+#blast db location
 blast_db = sys.argv[3]
+#threads for blast
 cpus = sys.argv[4]
+#blast evalue cutoff 
 eval_cutoff = sys.argv[5]
 
 filename = base + '_unassigned.txt'
 
+# If unassigned file is empty make a blank one so the lack of output doesn't crash the script
 if os.stat(filename).st_size == 0: 
     print("file is empty", flush = True)
     subprocess.call('touch ' +  base + '_unassigned_report.tsv', shell = True)
 else: 
-    #fasta_file = '/Users/gerbix/Documents/vikas/scratch/test.fasta'
-    #base = 'test'
     print("Unassigned file not empty. Starting BLAST", flush = True)
+    # Blast command taken from python CLOMP 
     subprocess.call('blastn -db ' + blast_db +  '/nt -task blastn -query ' + base + '_unassigned.txt -num_threads ' +  cpus + ' -evalue ' + eval_cutoff + ' -outfmt "6 qseqid staxids  bitscore sacc evalue " -max_target_seqs 1 -max_hsps 1 > blast_check.txt', shell = True)
     print("BLAST finished", flush = True)
+    #logging ls
     subprocess.call('ls -lah', shell = True)
-    #for line in open('blast_check.txt'): 
 
-    #fasta = open("${base}_unassigned.txt")
     fasta = {}
     with open(fasta_file) as file_one:
         for line in file_one:
@@ -54,15 +59,15 @@ else:
 
 
 
-
+# Match read back to taxid from BLAST
     reassigned = {}
     for line in open('blast_check.txt'):
         current_line = line.split()
         reassigned[current_line[0]] = str(current_line[1])
 
     unique_taxids = set(reassigned.values())
-    print(unique_taxids)
 
+# Sum taxids for temp kraken report
     taxid_counts = {} 
     for taxid in unique_taxids: 
         count = sum(value == taxid for value in reassigned.values())
@@ -76,13 +81,8 @@ else:
     still_unassigned_count = len(fasta) - len(reassigned)
 
     l.write('0\t' + str(still_unassigned_count))
+
     # write the rest of the taxids to the file
     for key in taxid_counts.keys():
-        print(key)
         l.write('\n' + str(key) + '\t' + str(taxid_counts[key]))
-
-    # generate pavian report
-    #final_filename = base + 'unassigned_report.tsv'
-    #kraken_report_cmd = '/usr/local/miniconda/bin/krakenuniq-report --db kraken_db --taxon-counts ' + temp_filename + ' > ' + final_filename
-
-    #subprocess.call(kraken_report_cmd, shell = True)
+# for some reason report generation fails from python subprocess call so I'm doing it in the nf script itself

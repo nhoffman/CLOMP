@@ -228,7 +228,7 @@ samtools view -@ ${task.cpus} -f 4 \${sample_name}_mappedBam | \
 readsafter=`gzip -dc ${r1} | awk 'NR%4==2{c++} END{ print c;}'`
 echo "\$readsafter Reads after host filtering "
 
-
+# Reads lost in host filtering
 difference=\$((\$readsbefore-\$readsafter))
 
 echo "host filtered \$difference reads"
@@ -401,6 +401,7 @@ gzip -dc ${r1} | awk 'NR%4==2{c++} END{ print c;}'
 """
 }
 
+// Not being used anymore
 process deduplicate { 
 
     // Retry at most 3 times
@@ -529,14 +530,16 @@ ls -lahtr
 # Free space in directory 
 df -h 
 
+#Crashes and retries if samples aren't downloaded to worker correctly 
 for fp in ${r1_list}; do
   echo Checking to make sure that \$fp was downloaded to the worker
   [[ -s \$fp ]]
 done
 
-ls -lh ${SNAP_DB}/
+# Logging ls 
+ls -lah ${SNAP_DB}/
 
-
+# Makes sure snap databases are downloaded correctly
 echo Checking to make sure that the full database is available at ${SNAP_DB}
 #[[ -f ${SNAP_DB}/GenomeIndexHash ]]
 #[[ -f ${SNAP_DB}/OverflowTable ]]
@@ -578,6 +581,7 @@ process collect_snap_results {
     
     // Define the Docker container used for this step
     container "quay.io/vpeddu/clomp_containers:latest"
+    containerOptions = "--user root"
 
     // Define the input files
     input:
@@ -586,8 +590,8 @@ process collect_snap_results {
 
     // Define the output files
     output:
-      tuple val(base), file("${base}*")
-
+      tuple val(base), file("${base}0*")
+      file "sortedsam.sam"
     // Code to be executed inside the task
     script:
       """
@@ -597,11 +601,7 @@ set -e
 
 # For logging and debugging, list all of the files in the working directory
 ls -lahtr
-#bamcount=0
-#tempcount=0
 
-#for i in *.bam; do echo \$i ; tempcount=\$(samtools view -c \$i); \$bamcount=\$((\$bamcount ; done
-#for i in *.bam; do echo \$i ; tempcount=\$(samtools view -c \$i); \$bamcount=\$((\$bamcount + \$tempcount)); done
 
 echo "Merging BAM files for ${base}"
 
@@ -616,25 +616,57 @@ ls -lah
 
 echo "splitting ${base} pseudosam"
 
-python3 ${SAM_SPLIT} ${base}.sorted.sam ${params.TIEBREAKING_CHUNKS} ${base}
+linenum=`cat ${base}.sorted.sam | wc -l`
+splitnum=`echo \$(( \$linenum / ${params.TIEBREAKING_CHUNKS} ))`
 
-#linenum=`cat ${base}.sam | wc -l`
+echo "lines to split: "\$splitnum 
 
-#echo "lines: " \$linenum
+# split files by splitnum number of lines
+split -d -a 3  -l \$splitnum ${base}.sorted.sam ${base}
 
-#echo  "tiebreaking chunks: " ${params.TIEBREAKING_CHUNKS}
+echo "ls after split"
+ls -latr
 
-#splitnum=`echo \$(( \$linenum / ${task.cpus} ))`
-#splitnum=`echo \$(( \$linenum / ${params.TIEBREAKING_CHUNKS} ))`
+basename=${base}
 
-#echo "lines to split: "\$splitnum 
+files=(\$basename*)
 
-#cat ${base}.sam | split -l \$splitnum - ${base}
+echo \$files
 
+# number of files made in split
+total=`ls ${base}0* | wc -l`
+
+# total=\${#files[@]}
+total=\$((total-2))
+
+echo "basename "\$basename
+echo "total "\$total
+
+# Michelle's split command
+# Checks head/tail of each file to check record boundaries 
+fixSplit() {
+        inum=\$(printf %03d \$i)
+        last_record=\$(tail -1 \$basename\$inum | cut -f1)
+        j=\$((i + 1))
+        j=\$(printf %03d \$j)
+        echo "Last record in "\$basename\$inum" is "\$last_record". Grepping in "\$basename\$j"."
+        head -n 30000 \$basename\$j | grep \$last_record >> \$basename\$inum
+        echo "Removing "\$last_record" from "\$basename\$j"."
+        vim -e +:g/\$last_record/d -cwq \$basename\$j
+        echo "Done."
+}
+
+for i in \$(seq 0 \$total); do fixSplit & done
+
+wait
+
+
+# removing to avoid output collisions 
 mv ${base}.sorted.sam sortedsam.sam
 rm ${base}.sam
 
-
+# remove files of size zero. This happens when all of the records from the last file should be in the second to last file. 
+find . -name "${base}0*" -size  0 -print -delete
 
 """
 }
@@ -1002,6 +1034,7 @@ for line in  open(bam_file):
             current_read_taxid = [snap_assignment_of_current_read,100]
         else:
             #Pull the taxid and the edit distance from each line.
+            #print(line)
             current_read_taxid = [snap_assignment_of_current_read.split('#')[-1],
                 int(line_list[17].split(':')[-1])]
         #Create map for each sample.
@@ -1356,15 +1389,12 @@ process blast_unassigned {
       
       ls -lah
 
+      # script to BLAST unassigned reads
       python3 ${BLAST_UNASSIGNED_SCRIPT} ${base} ${unassigned_file} ${BLAST_DB} ${task.cpus} 1e-4
 
-
-      #if [ -s "${base}_unassigned_report.tsv" ]
-      #then
+      # report generation command 
       /usr/local/miniconda/bin/krakenuniq-report --db kraken_db --taxon-counts unassigned_temp_kraken.tsv > ${base}_unassigned_report.tsv
-      #else 
-      #echo "Unassigned file empty did not generate report" ; touch blast_check.txt
-      #fi
+
 
 
       """
