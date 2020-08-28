@@ -434,7 +434,7 @@ process deduplicate {
       sample_name=\$(echo ${r1} | sed 's/.R1.fastq.gz//')
       echo "Processing \$sample_name"
 
-      dedupe2.sh in=${r1} out=${r1}.deduped.fastq.gz
+      dedupe2.sh in=${r1} out=${r1}.deduped.fastq.gz -Xmx120g
 
       mv ${r1}.deduped.fastq.gz ${r1}
       
@@ -1167,6 +1167,7 @@ process generate_report {
       file MERGED
       file TAXONOMY_DATABASE
       // val host_filtered_count
+     // file r1
     // Define the output files
     output:
       file "${base}.final_report.tsv"
@@ -1176,6 +1177,7 @@ process generate_report {
       file "*.clompviz.tsv"
       file "${base}.with_host_final_report.tsv"
       tuple val(base), file("${base}_unassigned.txt")
+     // file "*metagenome.fastq.gz"
     // Code to be executed inside the task
     script:
       """

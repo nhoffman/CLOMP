@@ -482,6 +482,8 @@ workflow {
             TAXDUMP_MERGED,
             TAXONOMY_DATABASE
             //filter_human_single.out[2]
+            KRAKEN_DB //,
+            // deduplicate.out
         )
 
         // If true runs all unassigned reads against local BLASTn and keeps only top hit with evalue < 1e-4
