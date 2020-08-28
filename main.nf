@@ -121,12 +121,16 @@ if (params.help){
 // These values are overridden by what the user specifies (e.g. with --R1)
 params.INPUT_FOLDER = false
 params.INPUT_SUFFIX = ".fastq.gz"
+// Paired end hasn't been tested since the first version of the nextflow script
 params.PAIRED_END = false
 params.OUTDIR = false
+// There was talk about making the bucke that hosts these open to public (our data stays private of course) but I don't think it ever happened
 params.SNAP_INDEXES = "s3://fh-ctr-public-reference-data/tool_specific_data/CLOMP/full_clomp_db/nt.00/,s3://fh-ctr-public-reference-data/tool_specific_data/CLOMP/full_clomp_db/nt.01/,s3://fh-ctr-public-reference-data/tool_specific_data/CLOMP/full_clomp_db/nt.02/,s3://fh-ctr-public-reference-data/tool_specific_data/CLOMP/full_clomp_db/nt.03/,s3://fh-ctr-public-reference-data/tool_specific_data/CLOMP/full_clomp_db/nt.04/,s3://fh-ctr-public-reference-data/tool_specific_data/CLOMP/full_clomp_db/nt.05/,s3://fh-ctr-public-reference-data/tool_specific_data/CLOMP/full_clomp_db/nt.06/,s3://fh-ctr-public-reference-data/tool_specific_data/CLOMP/full_clomp_db/nt.07/,s3://fh-ctr-public-reference-data/tool_specific_data/CLOMP/full_clomp_db/nt.08/,s3://fh-ctr-public-reference-data/tool_specific_data/CLOMP/full_clomp_db/nt.09/,s3://fh-ctr-public-reference-data/tool_specific_data/CLOMP/full_clomp_db/nt.10/,s3://fh-ctr-public-reference-data/tool_specific_data/CLOMP/full_clomp_db/nt.11/,s3://fh-ctr-public-reference-data/tool_specific_data/CLOMP/full_clomp_db/nt.12/,s3://fh-ctr-public-reference-data/tool_specific_data/CLOMP/full_clomp_db/nt.13/" 
+// Defaults from python CLOMP
 params.SNAP_OPTIONS = "-mrl 65 -d 9 -h 30000 -om 1 -omax 20"
 params.HOST_FILTER_FIRST = false
 params.SECOND_PASS = false
+// Defaults from python clomp
 params.TRIMMOMATIC_OPTIONS = ':2:30:10 HEADCROP:10 SLIDINGWINDOW:4:20 CROP:65 MINLEN:65'
 params.BBDUK_TRIM_OPTIONS = 'ktrim=r k=27 hdist=1 edist=0 mink=4 qtrim=rl trimq=6 minlength=65 ordered=t qin=33'
 params.TRIMMOMATIC_JAR_PATH = "s3://fh-ctr-public-reference-data/tool_specific_data/CLOMP/trimmomatic-0.38.jar"
@@ -136,9 +140,10 @@ params.BWT_DB_PREFIX = "hg38"
 params.BWT_DB_LOCATION = "s3://fh-ctr-public-reference-data/tool_specific_data/CLOMP/hg38/"
 params.BWT_SECOND_PASS_OPTIONS = '-D 35 -R 5 -N 1 -L 19 -i S,1,0.50'
 params.BLAST_EVAL = 0.001
+// Off by default because it adds a few hours to runtime 
 params.BLAST_CHECK = false
-params.DEDUPE = true
-params.BLAST_CHECK_DB = false
+params.DEDUPE = false
+params.BLAST_CHECK_DB = "s3://clomp-reference-data/tool_specific_data/CLOMP/blast_db/"
 params.FILTER_LIST = "[12908,28384,48479]"
 params.KRAKEN_DB_PATH = "s3://fh-ctr-public-reference-data/tool_specific_data/CLOMP/kraken_db/"
 params.H_STRICT = false
@@ -155,8 +160,15 @@ params.HOST_FILTER_TAXID = 9606
 params.WRITE_UNIQUES = true
 params.EDIT_DISTANCE_OFFSET = 6
 params.BUILD_SAMS = false
+// Increase to align more samples within each snap database 
 params.SNAP_BATCHSIZE = 20
-params.TIEBREAKING_CHUNKS = 2
+// Controls number of parallel tiebreaking chunks 
+params.TIEBREAKING_CHUNKS = 4
+params.TAXDUMP_NODES = 's3://clomp-reference-data/tool_specific_data/CLOMP/clomp_viz/nodes.dmp'
+params.TAXDUMP_MERGED = 's3://clomp-reference-data/tool_specific_data/CLOMP/clomp_viz/merged.dmp'
+params.IGNORE_TAXA = "['99802','4558']"
+params.TAXONOMY_DATABASE = 's3://clomp-reference-data/tool_specific_data/CLOMP/taxonomy_database/taxa.sqlite'
+
 
 // Check to make sure that the required parameters have been set
 if (!params.INPUT_FOLDER){ exit 1, "Must provide folder containing input files with --INPUT_FOLDER" }
@@ -168,10 +180,19 @@ if (!params.OUTDIR.endsWith("/")){
     params.OUTDIR = "${params.OUTDIR}/"
 }
 
-// Identify some resource files
+/* 
+ Identify some resource files 
+ */
+
 TRIMMOMATIC_JAR = file(params.TRIMMOMATIC_JAR_PATH)
 TRIMMOMATIC_ADAPTER = file(params.TRIMMOMATIC_ADAPTER_PATH)
 GENERATE_SUMMARY_SCRIPT = file("modules/summarize_run.r")
+SAM_SPLIT = file("${workflow.projectDir}/bin/split_sam.sh")
+BLAST_UNASSIGNED_SCRIPT = file("${workflow.projectDir}/bin/blast_unassigned.py")
+TAXDUMP_NODES = file(params.TAXDUMP_NODES)
+TAXDUMP_MERGED = file(params.TAXDUMP_MERGED)
+TAXONOMY_DATABASE = file(params.TAXONOMY_DATABASE)
+
 
 if (params.BLAST_CHECK){
     if (!params.BLAST_CHECK_DB){ exit 1, "Must provide BLAST check database with --BLAST_CHECK_DB" }
@@ -185,6 +206,8 @@ KRAKEN_DB = [
     file("${params.KRAKEN_DB_PATH}seqid2taxid.map"),
     file("${params.KRAKEN_DB_PATH}taxDB")
 ]
+
+
 
 /*
  * Import the processes used in this workflow
@@ -219,9 +242,15 @@ include filter_human_paired as filter_human_paired_second_pass from './modules/c
 )
 include bbMask_Single from './modules/clomp_modules' params(BBDUK_TRIM_OPTIONS: params.BBDUK_TRIM_OPTIONS)
 include deduplicate from './modules/clomp_modules'
+
 include snap_single from './modules/clomp_modules' params(SNAP_OPTIONS: params.SNAP_OPTIONS)
 include snap_paired from './modules/clomp_modules' params(SNAP_OPTIONS: params.SNAP_OPTIONS)
-include summarize_run from './modules/clomp_modules'
+include collect_results from './modules/clomp_modules'
+include collect_results_with_unassigned from './modules/clomp_modules'
+include generate_coverage from './modules/clomp_modules'
+
+
+
 include CLOMP_summary from './modules/clomp_modules' params(
     BLAST_CHECK: params.BLAST_CHECK,
     BLAST_EVAL: params.BLAST_EVAL,
@@ -241,8 +270,10 @@ include CLOMP_summary from './modules/clomp_modules' params(
     EDIT_DISTANCE_OFFSET: params.EDIT_DISTANCE_OFFSET,
     BUILD_SAMS: params.BUILD_SAMS,
     SECOND_PASS: params.SECOND_PASS,
+    IGNORE_TAXA: params.IGNORE_TAXA
 )
 include generate_report from './modules/clomp_modules'
+include blast_unassigned from './modules/clomp_modules'
 
 // Run the CLOMP workflow
 workflow {
@@ -327,6 +358,10 @@ workflow {
             KRAKEN_DB
         )
     } else {
+    /* 
+     Begin single end logic
+     */ 
+
         input_read_ch = Channel
             .fromPath("${params.INPUT_FOLDER}*${params.INPUT_SUFFIX}")
             .ifEmpty { error "Cannot find any FASTQ pairs in ${params.INPUT_FOLDER} ending with ${params.INPUT_SUFFIX}" }
@@ -364,33 +399,43 @@ workflow {
                 )
             }
         } else {
-            //Trimmomatic depracated. Using BBDuk for quality filtering, adapter trimming, and entropy filtering 
+            // Adapter and quality trimming with trimmomatic (params.TRIMMOMATIC_OPTIONS)
+            trimmomatic_single(
+              validate_single.out,
+              TRIMMOMATIC_JAR,
+              TRIMMOMATIC_ADAPTER
+            )
 
-            //trimmomatic_single(
-            //   validate_single.out,
-            //   TRIMMOMATIC_JAR,
-            //   TRIMMOMATIC_ADAPTER
-            //)
+            // Using bbMask for FASTQ level low entropy filtering. 
+            // TODO: Fine tune with actual entropy scores 
             bbMask_Single(
-                validate_single.out,
+                trimmomatic_single.out,
                 TRIMMOMATIC_ADAPTER
                 )
-            if ( params.DEDUPE){ 
-            deduplicate(
-                bbMask_Single.out
-                )
+            // Removed deduplication 
+            // if ( params.DEDUPE ){ 
+            // deduplicate(
+            //     //bbMask_Single.out
+            //     trimmomatic_single.out
+            //     )
+            // filter_human_single(
+            //     deduplicate.out,
+            //     BWT_FILES
+            //     )
+            // } else { 
+
+            // Host filtering with bowtie2 
             filter_human_single(
-                deduplicate.out,
-                BWT_FILES
-                )
-            }
-            else { 
-            filter_human_single(
-                bbMask_Single.out,
+                //bbMask_Single.out,
+                //bbMask_Single.out,
+                bbMask_Single.out.flatten().map{
+                it -> [it.name.replace(/${params.INPUT_SUFFIX}/, ""), it]
+            }.groupTuple(),
                 BWT_FILES
             )
 
-            }
+            // }
+            // A max of params.SNAP_BATCHSIZE samples will be aligned to each database before spawning a new database to align against
             snap_single(
                 filter_human_single.out[0].toSortedList().flatten().collate(params.SNAP_BATCHSIZE),
                 SNAP_INDEXES_CH
@@ -398,37 +443,84 @@ workflow {
             )
         }
 
+        // Collect snap results into giant SAM and split for tiebreaking 
         collect_snap_results(
+            snap_single.out.flatten().map{
+                it -> [it.name.split("__")[0], it]
+            }.groupTuple(),
+            SAM_SPLIT
+        )
+        
+        // Generate coverage for each accession in the SNAP results using samtools depth
+        generate_coverage(
             snap_single.out.flatten().map{
                 it -> [it.name.split("__")[0], it]
             }.groupTuple()
         )
 
+        // Tiebreaking logic 
         CLOMP_summary(
-            collect_snap_results.out.transpose(),
+            collect_snap_results.out[0].transpose(),
             BLAST_CHECK_DB,
-            KRAKEN_DB
+            KRAKEN_DB,
+            TAXONOMY_DATABASE
         )
+        // Combines temp_kraken tsv files and writes final pavian report 
         generate_report(
             CLOMP_summary.out[0].groupTuple(
             ).join(
                 CLOMP_summary.out[1].groupTuple()
             ).join(
                 CLOMP_summary.out[2].groupTuple()
+            ).join( 
+            filter_human_single.out[2].groupTuple()
             ),
             BLAST_CHECK_DB,
+            KRAKEN_DB,
+            filter_human_single.out[0],
+            TAXDUMP_NODES,
+            TAXDUMP_MERGED,
+            TAXONOMY_DATABASE
+            //filter_human_single.out[2]
             KRAKEN_DB //,
             // deduplicate.out
         )
-        // summarize_run( 
-        //     generate_report.out[0].toList(), 
-        //         generate_report.out[1].toList(), 
-        //         generate_report.out[2].toList(),
-        //         GENERATE_SUMMARY_SCRIPT
-        // )
+
+        // If true runs all unassigned reads against local BLASTn and keeps only top hit with evalue < 1e-4
+        if(params.BLAST_CHECK){
+        blast_unassigned( 
+            generate_report.out[6],
+            params.BLAST_CHECK_DB,
+            BLAST_UNASSIGNED_SCRIPT,
+            KRAKEN_DB,
+            TAXONOMY_DATABASE
+        )
+
+        // Collect all results and move format into output folder structure 
+        collect_results_with_unassigned( 
+            generate_report.out[0].toList(), 
+            generate_report.out[1].toList(),
+            generate_report.out[2].toList(),
+            generate_report.out[3].toList(),
+            generate_report.out[4].toList(),
+            generate_report.out[5].toList(),
+            blast_unassigned.out[0].toList(),
+            generate_coverage.out[1].toList()
+            )
+        // publish:
+        //     collect_results_with_unassigned.out to: "${params.OUTDIR}"
+        }else{
+
+        // Collect all results and move format into output folder structure 
+        collect_results( 
+            generate_report.out[0].toList(), 
+            generate_report.out[1].toList(),
+            generate_report.out[2].toList(),
+            generate_report.out[3].toList(),
+            generate_report.out[4].toList(),
+            generate_report.out[5].toList(),
+            generate_coverage.out[1].toList()
+            )
+        }
     }    
-    publish:
-    generate_report.out to: "${params.OUTDIR}"
-        //summarize_run.out to: "${params.OUTDIR}"
-        //filter_human_single.out[1] to: "${params.OUTDIR}/logs/"
 }

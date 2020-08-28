@@ -6,7 +6,7 @@ params.SECOND_PASS = false
 params.BWT_SECOND_PASS_OPTIONS = false
 params.BWT_DB_PREFIX = false
 params.SEQUENCER = false
-params.TRIMMOMATIC_OPTIONS = false
+params.TRIMMOMATIC_OPTIONS = ':2:30:10 HEADCROP:10 SLIDINGWINDOW:4:20 CROP:65 MINLEN:65'
 params.SNAP_OPTIONS = false
 params.BLAST_CHECK = false
 params.WRITE_UNIQUES = false
@@ -166,14 +166,14 @@ process filter_human_single {
 
     // Define the input files
     input:
-      file r1
+      tuple val(base), file (r1)
       file "*"
 
     // Define the output files
     output:
       file "${r1}"
       file "*.log"
-
+      tuple env(base), env(difference)
     // Code to be executed inside the task
     script:
       """
@@ -184,8 +184,22 @@ set -e
 # For logging and debugging, list all of the files in the working directory
 ls -lahtr
 
+
+
+
+base=`basename ${base} .R1`
+echo \$base
+
 # Get the sample name from the input FASTQ name
 sample_name=\$(echo ${r1} | sed 's/.R1.fastq.gz//')
+
+readsbefore=`gzip -dc ${r1} | awk 'NR%4==2{c++} END{ print c;}'`
+
+echo "\$readsbefore Reads before host filtering "
+
+
+
+
 
 echo "Starting the alignment of ${r1}"
 bowtie2 \
@@ -210,9 +224,19 @@ echo "Extracting the FASTQ"
 samtools view -@ ${task.cpus} -f 4 \${sample_name}_mappedBam | \
     awk \'{if(\$3 == \"*\") print \"@\" \$1 \"\\n\" \$10 \"\\n\" \"+\" \$1 \"\\n\" \$11}\' | \
     gzip -c > \${sample_name}.R1.fastq.gz
+
+readsafter=`gzip -dc ${r1} | awk 'NR%4==2{c++} END{ print c;}'`
+echo "\$readsafter Reads after host filtering "
+
+# Reads lost in host filtering
+difference=\$((\$readsbefore-\$readsafter))
+
+echo "host filtered \$difference reads"
+
       """
 }
 
+// Depracated because of java memory errors with big files. Using bbduk instead. 
 process trimmomatic_single {
 
     // Retry at most 3 times
@@ -242,7 +266,12 @@ set -e
 # For logging and debugging, list all of the files in the working directory
 ls -lahtr
 
-echo "Starting to trim ${r1}"
+echo "Reads before adapter trimming (Trimmomatic) "
+
+gzip -dc ${r1} | awk 'NR%4==2{c++} END{ print c;}'
+
+
+echo "Starting to trim ${r1} with options ${params.TRIMMOMATIC_OPTIONS}"
 
 # Rename the file to prevent collision
 mv ${r1} INPUT.${r1}
@@ -254,6 +283,11 @@ java -jar \
     INPUT.${r1} \
     ${r1} \
     ${params.SEQUENCER}${TRIMMOMATIC_ADAPTER}${params.TRIMMOMATIC_OPTIONS}
+
+
+echo 'Reads after adapter trimming '
+gzip -dc ${r1} | awk 'NR%4==2{c++} END{ print c;}'
+
 """
 }
 
@@ -288,7 +322,8 @@ set -e
 # For logging and debugging, list all of the files in the working directory
 ls -lahtr
 
-echo "Starting to trim ${r1} and ${r2}"
+
+
 java -jar \
     ${TRIMMOMATIC_JAR} \
     PE \
@@ -343,22 +378,30 @@ echo "Processing \$sample_name"
 # Rename the input file to make sure we don't use it as the output
 mv ${r1} INPUT.${r1}
 
+echo "Reads before low complexity filtering "
+gzip -dc INPUT.${r1} | awk 'NR%4==2{c++} END{ print c;}'
+
 echo "Masking ${r1}"
 bbduk.sh \
     in=INPUT.${r1} \
-    out=${r1}.trimmed.fastq.gz \
+    out=${r1}.lcf.fastq.gz \
     entropy=0.7 \
     entropywindow=50 \
-    entropyk=4 \
-    ref=${TRIMMOMATIC_ADAPTER} \
-    ${params.BBDUK_TRIM_OPTIONS}
+    entropyk=4 
     
 
-    mv ${r1}.trimmed.fastq.gz ${r1}
+    
+
+    mv ${r1}.lcf.fastq.gz ${r1}
+
+echo "Reads after low complexity filtering"
+gzip -dc ${r1} | awk 'NR%4==2{c++} END{ print c;}'
+
 
 """
 }
 
+// Not being used anymore
 process deduplicate { 
 
     // Retry at most 3 times
@@ -487,14 +530,16 @@ ls -lahtr
 # Free space in directory 
 df -h 
 
+#Crashes and retries if samples aren't downloaded to worker correctly 
 for fp in ${r1_list}; do
   echo Checking to make sure that \$fp was downloaded to the worker
   [[ -s \$fp ]]
 done
 
-ls -lh ${SNAP_DB}/
+# Logging ls 
+ls -lah ${SNAP_DB}/
 
-
+# Makes sure snap databases are downloaded correctly
 echo Checking to make sure that the full database is available at ${SNAP_DB}
 #[[ -f ${SNAP_DB}/GenomeIndexHash ]]
 #[[ -f ${SNAP_DB}/OverflowTable ]]
@@ -531,20 +576,22 @@ bash snap_cmd.sh
 process collect_snap_results {
 
     // Retry at most 3 times
-    errorStrategy 'retry'
-    maxRetries 3
+    //errorStrategy 'retry'
+    //maxRetries 3
     
     // Define the Docker container used for this step
-    container "quay.io/fhcrc-microbiome/bowtie2:bowtie2-2.2.9-samtools-1.3.1"
+    container "quay.io/vpeddu/clomp_containers:latest"
+    containerOptions = "--user root"
 
     // Define the input files
     input:
       tuple val(base), file(bam_list)
+      file SAM_SPLIT 
 
     // Define the output files
     output:
-      tuple val(base), file("${base}*")
-
+      tuple val(base), file("${base}0*")
+      file "sortedsam.sam"
     // Code to be executed inside the task
     script:
       """
@@ -554,36 +601,128 @@ set -e
 
 # For logging and debugging, list all of the files in the working directory
 ls -lahtr
-#bamcount=0
-#tempcount=0
 
-#for i in *.bam; do echo \$i ; tempcount=\$(samtools view -c \$i); \$bamcount=\$((\$bamcount ; done
-#for i in *.bam; do echo \$i ; tempcount=\$(samtools view -c \$i); \$bamcount=\$((\$bamcount + \$tempcount)); done
-echo "here"
 
 echo "Merging BAM files for ${base}"
 
-for i in ${bam_list}; do samtools view \$i >> ${base}.sam; done
+for i in ${bam_list}; do /usr/bin/samtools view \$i >> ${base}.sam; done
 
-linenum=`cat ${base}.sam | wc -l`
+echo "sorting ${base} pseudosam by readname"
 
-echo "lines: " \$linenum
+sort -k 1 --buffer-size=200G ${base}.sam > ${base}.sorted.sam
 
-echo "tiebreaking chunks: " ${params.TIEBREAKING_CHUNKS}
+echo "ls after sort" 
+ls -lah
 
-#splitnum=`echo \$(( \$linenum / ${task.cpus} ))`
+echo "splitting ${base} pseudosam"
+
+linenum=`cat ${base}.sorted.sam | wc -l`
 splitnum=`echo \$(( \$linenum / ${params.TIEBREAKING_CHUNKS} ))`
 
 echo "lines to split: "\$splitnum 
 
-cat ${base}.sam | split -l \$splitnum - ${base}
+# split files by splitnum number of lines
+split -d -a 3  -l \$splitnum ${base}.sorted.sam ${base}
 
+echo "ls after split"
+ls -latr
+
+basename=${base}
+
+files=(\$basename*)
+
+echo \$files
+
+# number of files made in split
+total=`ls ${base}0* | wc -l`
+
+# total=\${#files[@]}
+total=\$((total-2))
+
+echo "basename "\$basename
+echo "total "\$total
+
+# Michelle's split command
+# Checks head/tail of each file to check record boundaries 
+fixSplit() {
+        inum=\$(printf %03d \$i)
+        last_record=\$(tail -1 \$basename\$inum | cut -f1)
+        j=\$((i + 1))
+        j=\$(printf %03d \$j)
+        echo "Last record in "\$basename\$inum" is "\$last_record". Grepping in "\$basename\$j"."
+        head -n 30000 \$basename\$j | grep \$last_record >> \$basename\$inum
+        echo "Removing "\$last_record" from "\$basename\$j"."
+        vim -e +:g/\$last_record/d -cwq \$basename\$j
+        echo "Done."
+}
+
+for i in \$(seq 0 \$total); do fixSplit & done
+
+wait
+
+
+# removing to avoid output collisions 
+mv ${base}.sorted.sam sortedsam.sam
 rm ${base}.sam
 
-
+# remove files of size zero. This happens when all of the records from the last file should be in the second to last file. 
+find . -name "${base}0*" -size  0 -print -delete
 
 """
 }
+
+process generate_coverage {
+
+    // Retry at most 3 times
+    //errorStrategy 'retry'
+    //maxRetries 3
+    
+    // Define the Docker container used for this step
+    container "quay.io/vpeddu/clomp_containers:latest"
+
+    // Define the input files
+    input:
+      tuple val(base), file(bam_list)
+
+    // Define the output files
+    output:
+      tuple val(base), file("*depth.txt")
+      file "${base}.depth.txt"
+
+    // Code to be executed inside the task
+    script:
+      """
+      #!/bin/bash
+      
+
+      # logging statement  
+      ls -lah 
+
+      echo "sorting"
+
+      for i in *.bam 
+      do
+      samtools sort -@ ${task.cpus} -o \$i.sorted.bam \$i
+      done
+
+      #echo "merging"
+      #samtools merge ${base}.merged.bam *.sorted.bam 
+
+        
+      echo "creating depth file"
+      for i in *.sorted.bam 
+      do
+      samtools depth \$i > \$i.depth.txt
+      done
+
+
+
+      echo "creating depth file"
+      cat *.depth.txt > ${base}.depth.txt
+
+"""
+}
+
 
 process CLOMP_summary {
 
@@ -599,6 +738,7 @@ process CLOMP_summary {
       tuple val(base), file(bam_file)
       file BLAST_CHECK_DB
       file "kraken_db/"
+      file TAXONOMY_DATABASE
     output:
       tuple val(base), file("${base}.*.temp_kraken.tsv")
       tuple val(base), file("*unassigned.txt")
@@ -611,6 +751,7 @@ process CLOMP_summary {
 #!/usr/bin/env python3
 
 print("Processing BAM file: ${bam_file}")
+
 import uuid
 import ast 
 import subprocess
@@ -623,7 +764,16 @@ from collections import Counter
 from ete3 import NCBITaxa
 import timeit
 from collections import defaultdict
-ncbi = NCBITaxa()
+
+subprocess.call('ls -latr', shell = True)
+
+
+
+ncbi = NCBITaxa(dbfile = 'taxa.sqlite')
+
+# add print statement for getlineage 9606
+# print('here', flush = True)
+# print(ncbi.get_lineage('9606'), flush = True)
 
 
 # Make a function to run a shell command and catch any errors
@@ -658,6 +808,7 @@ def tie_break(taxid_list):
 		#if(percent % 2 == 0):
 			#print(percent)
 		if id[1] <= best_edit_distance and str(id[0]) != str('4558') and str(id[0]) != str('99802'):
+		#if id[1] <= best_edit_distance and str(id[0]) not in ${params.IGNORE_TAXA}:
 			actual_taxid_list.append(id[0])
 	#No longer holding edit distances		
 	taxid_list = actual_taxid_list
@@ -670,11 +821,13 @@ def tie_break(taxid_list):
 			lineage = ncbi.get_lineage(id)
 			# filters out lineages that contain taxids in the FILTER_LIST variable
 			# commonly, this is 'other sequences', 'artificial sequences' or 'environmental samples' 
-			if any(x in ${params.FILTER_LIST} for x in lineage):
-				lineage = []
+
 		except:
 			lineage = []
-		
+					
+		if any(str(x) in ${params.FILTER_LIST} for x in lineage):
+			lineage = []
+    
 		if lineage:
 			lineage_list.append(lineage)
 	
@@ -732,10 +885,10 @@ def tie_break(taxid_list):
 	#Assign a Boolean value for each read as to whether it needs to be searched against a custom BLAST database
 	#Here, we are just assigning whether it needs to be searched or not.  The custom BLAST database would need to be made separately.
 	#All reads downstream of INCLUSION_TAXID and but not downstream of EXCLUSION_TAXID will be assigned a True value.
-	if "${params.BLAST_CHECK}" == "true":
-		assigned_lineage = ncbi.get_lineage(assigned_hit)
-		if ${params.INCLUSION_TAXID} in assigned_lineage and ${params.EXCLUSION_TAXID} not in assigned_lineage:
-			recheck = True
+	#if "${params.BLAST_CHECK}" == "true":
+	#	assigned_lineage = ncbi.get_lineage(assigned_hit)
+	#	if ${params.INCLUSION_TAXID} in assigned_lineage and ${params.EXCLUSION_TAXID} not in assigned_lineage:
+	#		recheck = True
 	
 	return [assigned_hit, recheck]
 
@@ -819,7 +972,7 @@ def build_sams(input_list):
 			taxid_lineage = ncbi.get_lineage(taxid)
 			# we walk up the taxonomy tree ASSEMBLY_NODE_OFFSET nodes and pull all reads that were taxonomically assigned at or below that node
 			taxid_to_pull = taxid_lineage[ASSEMBLY_NODE_OFFSET]
-			taxid_search_list = taxid_to_pull + ncbi.get_dsecendant_taxa(taxid_to_pull, intermediate_nodes = True)
+			taxid_search_list = taxid_to_pull + ncbi.get_descendant_taxa(taxid_to_pull, intermediate_nodes = True)
 			
 			header_list = []
 			seq_list = []
@@ -881,6 +1034,7 @@ for line in  open(bam_file):
             current_read_taxid = [snap_assignment_of_current_read,100]
         else:
             #Pull the taxid and the edit distance from each line.
+            #print(line)
             current_read_taxid = [snap_assignment_of_current_read.split('#')[-1],
                 int(line_list[17].split(':')[-1])]
         #Create map for each sample.
@@ -909,8 +1063,8 @@ e = open("${base}_" + str(uuid.uuid4()) + '_unassigned.txt','w')
 unass_count = 0
 taxid_to_read_set = {}
 
-if "${params.BLAST_CHECK}" == "true":
-    z = open("${base}_recheck.txt", 'w')
+#if "${params.BLAST_CHECK}" == "true":
+#    z = open("${base}_recheck.txt", 'w')
 
 
 for read_key in read_to_taxids_map.keys():
@@ -948,23 +1102,23 @@ for read_key in read_to_taxids_map.keys():
 
 g.close()
 e.close()
-if "${params.BLAST_CHECK}" == "true":
-    z.close()
-    subprocess_call('blastn -db ${BLAST_CHECK_DB} -task blastn -query ${base}_recheck.txt -num_threads 20 -evalue ${params.BLAST_EVAL} -outfmt "6 qseqid" -max_target_seqs 1 -max_hsps 1 > blast_check.txt')
-    redo_taxid_list = []
-    for line in open('blast_check.txt'):
-        redo_taxid_list.append(line.split())
-    n = open('new_assignments.txt', 'w')
-    for line in open("${base}" + '_assignments.txt'):
-        ll = line.split('\t')
-        if ll[0] in redo_taxid_list:
-            n.write(ll[0] + '\t' + DB_TAXID + '\t' + ll[2].strip() + '\\n')
-        else:
-            n.write(line)
-    n.close()
-    for item in redo_taxid_list:
-        final_assignment_counts[read_to_taxids_map[item]] += 1
-        final_assignment_counts[DB_TAXID] += 1
+#if "${params.BLAST_CHECK}" == "true":
+#    z.close()
+#    subprocess_call('blastn -db ${BLAST_CHECK_DB} -task blastn -query ${base}_recheck.txt -num_threads 20 -evalue ${params.BLAST_EVAL} -outfmt "6 qseqid" -max_target_seqs 1 -max_hsps 1 > blast_check.txt')
+#    redo_taxid_list = []
+#    for line in open('blast_check.txt'):
+#        redo_taxid_list.append(line.split())
+#    n = open('new_assignments.txt', 'w')
+#    for line in open("${base}" + '_assignments.txt'):
+#        ll = line.split('\t')
+#        if ll[0] in redo_taxid_list:
+#            n.write(ll[0] + '\t' + DB_TAXID + '\t' + ll[2].strip() + '\\n')
+#        else:
+#            n.write(line)
+#    n.close()
+#    for item in redo_taxid_list:
+#        final_assignment_counts[read_to_taxids_map[item]] += 1
+#        final_assignment_counts[DB_TAXID] += 1
     
 
 #For each sample, we make a folder and for every taxid, we create a FASTA file that are named by their taxid.  We lose the read ID in this file.  #nicetohave would be hold the read ID here.
@@ -998,22 +1152,31 @@ process generate_report {
 
     //Retry at most 3 times
     errorStrategy 'retry'
-    maxRetries 3
+    maxRetries 5
     
     // Define the Docker container used for this step
     container "quay.io/fhcrc-microbiome/clomp:v0.1.3"
 
     // Define the input files
     input:
-      tuple val(base), file(kraken_tsv_list), file(unassigned_txt_list), file(assigned_txt_list)
+      tuple val(base), file(kraken_tsv_list), file(unassigned_txt_list), file(assigned_txt_list), val(HOST_FILTERED_READS)
       file BLAST_CHECK_DB
       file "kraken_db/"
+      file r1
+      file NODES
+      file MERGED
+      file TAXONOMY_DATABASE
+      // val host_filtered_count
      // file r1
     // Define the output files
     output:
       file "${base}.final_report.tsv"
       file "${base}_unassigned.txt"
       file "${base}_assigned.txt"
+      file "*metagenome.fastq.gz"
+      file "*.clompviz.tsv"
+      file "${base}.with_host_final_report.tsv"
+      tuple val(base), file("${base}_unassigned.txt")
      // file "*metagenome.fastq.gz"
     // Code to be executed inside the task
     script:
@@ -1032,13 +1195,23 @@ import operator
 from collections import Counter
 from ete3 import NCBITaxa
 import timeit
-from collections import defaultdict
-ncbi = NCBITaxa()
+import sys
+import string
 
+from collections import defaultdict
+ncbi = NCBITaxa(dbfile = 'taxa.sqlite')
+
+host_lineage = ncbi.get_lineage(${params.H_TAXID})
+print(host_lineage)
+print(type(host_lineage))
 
 # Combine all of the input TSVs into a single file
-
-
+print('base')
+print("${base}")
+print('difference')
+print(type(${HOST_FILTERED_READS}))
+print(${HOST_FILTERED_READS}[0])
+host_filtered_reads = ${HOST_FILTERED_READS}[0]
 input_files = "${kraken_tsv_list}".split(" ")
 
 unassigned_generate = 'cat ${unassigned_txt_list} > ${base}_unassigned.txt'
@@ -1101,11 +1274,204 @@ subprocess.call("echo FILES  ;ls -latr",shell = True)
 subprocess.call(' x=`basename -s ".fastq.gz" *.fastq.gz` ; mv *.fastq.gz \$x.metagenome.fastq.gz',shell = True)
 
 
+#Adding in phylum designations from nodes.dmp (replaces s/d/k/- with species/domain/kingdom/subspecies in *.clompviz.tsv report)
+nodes = open ('nodes.dmp')
+
+taxa = {} 
+
+taxa[0] = 'root'
+taxa[1] = 'cellular_organisms'
+
+for line in nodes: 
+	accession =  line.strip().split('\t|\t')
+	ranks = accession[2].replace(" ", "_")
+	taxa[int(accession[0])] = ranks 
+
+# not all taxa are in nodes.dmp anymore 
+# some have been merged with other taxa. These are in merged.dmp
+merged_taxa = {}
+merged_nodes = open('merged.dmp')
+for line in merged_nodes: 
+	accession =  line.split('\t|')
+	merged_taxa[int(accession[0])] = int(accession[1].strip())
+
+
+files = glob.glob('*.final_report.tsv')
+print('files')
+print(${params.H_TAXID})
+new_host_filter_count = False
+for file in files: 
+	currentFile = open(file)
+	newFileName = os.path.split(file)[1].split('.tsv')[0] + '.clompviz.tsv'
+	newFile = open(newFileName, "w")
+	for line in currentFile:
+		if int(line.split('\t')[4]) in host_lineage: 
+			print('host filtered')
+			print(host_filtered_reads)
+			print('previous count')
+			print(int(line.split('\t')[1]))
+			new_host_filter_count = int(host_filtered_reads) + int(line.split('\t')[1])
+			print('added count')
+			print(new_host_filter_count)
+		# checks if in nodes.dmp
+		try:
+			new_phylum = taxa[int(line.split('\t')[4])]
+		#checks if in merged.dmp
+		except: 
+			try: 
+				new_phylum = merged_taxa[int(line.split('\t')[4])]
+			except: 
+				print("warning: "+  str(int(line.split('\t')[4])) +  ' not found')
+				new_phylum = 'not_found'
+		if new_host_filter_count:
+
+			newline = line.replace(line.split('\t')[1], str(new_host_filter_count))
+
+			new_host_filter_count = False
+		else:
+			newline = line.replace(line.split('\t')[3], str(new_phylum))
+		newFile.write(newline)
+
+
+# Writing just host filtered output 
+with_host_filename = "${base}" + ".with_host_final_report.tsv"
+new_host_filter_count = False
+for file in files: 
+	with_host_file = open(with_host_filename, "w")
+	currentFile = open(file)
+	for line in currentFile:
+		if int(line.split('\t')[4]) in host_lineage: 
+				print('host filtered')
+				print(host_filtered_reads)
+				print('previous count')
+				print(int(line.split('\t')[1]))
+				new_host_filter_count = int(host_filtered_reads) + int(line.split('\t')[1])
+				print('added count')
+				print(new_host_filter_count)
+		if new_host_filter_count:
+			print('here')
+			newline = line.replace(line.split('\t')[1], str(new_host_filter_count))
+			new_host_filter_count = False
+			line = newline
+		with_host_file.write(line)
+
+
+
+			
 
 """
 }
 
-process summarize_run { 
+process blast_unassigned { 
+
+    //Retry at most 3 times
+    errorStrategy 'retry'
+    maxRetries 3
+    
+    // Define the Docker container used for this step
+    container "quay.io/fhcrc-microbiome/clomp:v0.1.3"
+
+    // Define the input files
+    input:
+      tuple val(base), file(unassigned_file)
+      path BLAST_DB
+      file BLAST_UNASSIGNED_SCRIPT
+      file "kraken_db/"
+      file TAXONOMY_DATABASE
+
+    // Define the output files
+    output:
+      file "${base}_unassigned_report.tsv" 
+      file 'blast_check.txt'
+
+    // Code to be executed inside the task
+    script:
+      """
+      #!/bin/bash
+      
+      ls -lah
+
+      # script to BLAST unassigned reads
+      python3 ${BLAST_UNASSIGNED_SCRIPT} ${base} ${unassigned_file} ${BLAST_DB} ${task.cpus} 1e-4
+
+      # report generation command 
+      /usr/local/miniconda/bin/krakenuniq-report --db kraken_db --taxon-counts unassigned_temp_kraken.tsv > ${base}_unassigned_report.tsv
+
+
+
+      """
+
+
+}
+
+
+process collect_results { 
+
+    //Retry at most 3 times
+    errorStrategy 'retry'
+    maxRetries 3
+    
+
+    // Publish results to params.OUTDIR
+    publishDir "${params.OUTDIR}"
+
+
+    // Define the Docker container used for this step
+    container "quay.io/vpeddu/rgeneratesummary:latest"
+
+    // Define the input files
+    input:
+      file final_reports
+      file unassigneds
+      file assigneds
+      file metagenomes
+      file clompviz_tsvs
+      file with_host_final_reports
+      file depth_files
+      
+    // Define the output files
+    output:
+      file "pavian_input/"
+      file "metagenomes/"
+      file "clompviz/"
+      file "assigned"
+      file "depth_files/"
+      file "unassigned/"
+
+    // Code to be executed inside the task
+    script:
+      """
+      #!/bin/bash
+      
+      ls -lah
+
+      mkdir pavian_input
+      mkdir pavian_input/with_host
+      mkdir pavian_input/without_host
+      mkdir metagenomes
+      mkdir clompviz
+      mkdir assigned
+      mkdir unassigned
+      mkdir depth_files
+
+      mv *with_host_final_report.tsv pavian_input/with_host
+
+      mv *_report.tsv pavian_input/without_host
+
+      mv *metagenome.fastq.gz metagenomes
+
+      mv *.clompviz.tsv clompviz
+
+      mv *_assigned.txt assigned
+
+      mv *_unassigned.txt unassigned
+
+      mv *.depth.txt depth_files
+
+      """
+}
+
+process collect_results_with_unassigned { 
 
     //Retry at most 3 times
     errorStrategy 'retry'
@@ -1114,29 +1480,63 @@ process summarize_run {
     // Define the Docker container used for this step
     container "quay.io/vpeddu/rgeneratesummary:latest"
 
+    // Publish results to params.OUTDIR
+     publishDir "${params.OUTDIR}"
+
+
     // Define the input files
     input:
-      file kraken_tsv_list
-      file unassigned_txt_list
-      file assigned_txt_list
-      file GENERATE_SUMMARY_SCRIPT
+      file final_reports
+      file unassigneds
+      file assigneds
+      file metagenomes
+      file clompviz_tsvs
+      file with_host_final_reports
+      file unassigned_tsv
+      file depth_files
+      
     // Define the output files
     output:
-      file kraken_tsv_list
-      file unassigned_txt_list
-      file assigned_txt_list
-      file "RPM_summary.csv"
-
+      file "pavian_input/"
+      file "metagenomes/"
+      file "clompviz/"
+      file "assigned/"
+      file "unassigned/"
+      file "unassigned_blast/"
+      file "depth_files/"
     // Code to be executed inside the task
     script:
       """
       #!/bin/bash
       
-      echo ${kraken_tsv_list}
+      ls -lah
 
-      Rscript --vanilla ${GENERATE_SUMMARY_SCRIPT}
+      mkdir pavian_input
+      mkdir pavian_input/with_host
+      mkdir pavian_input/without_host
+      mkdir metagenomes
+      mkdir clompviz
+      mkdir assigned
+      mkdir unassigned
+      mkdir unassigned_blast
+      mkdir depth_files
+
+
+      mv *_unassigned_report.tsv unassigned_blast
+
+      mv *with_host_final_report.tsv pavian_input/with_host
+
+      mv *_report.tsv pavian_input/without_host
+
+      mv *metagenome.fastq.gz metagenomes
+
+      mv *.clompviz.tsv clompviz
+
+      mv *_assigned.txt assigned
+
+      mv *_unassigned.txt unassigned
+
+      mv *.depth.txt depth_files
+
       """
-
-
 }
-
