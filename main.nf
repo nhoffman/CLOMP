@@ -482,7 +482,7 @@ workflow {
             TAXDUMP_MERGED,
             TAXONOMY_DATABASE
             //filter_human_single.out[2]
-            KRAKEN_DB //,
+            //KRAKEN_DB 
             // deduplicate.out
         )
 
