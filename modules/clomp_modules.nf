@@ -627,38 +627,41 @@ split -d -a 3  -l \$splitnum ${base}.sorted.sam ${base}
 echo "ls after split"
 ls -latr
 
-basename=${base}
+python3 ${SAM_SPLIT} ${base}.sorted.sam ${params.TIEBREAKING_CHUNKS} ${base}
 
-files=(\$basename*)
+# MICHELLE SPLIT REALLY BROKEN 
+#basename=${base}
 
-echo \$files
+#files=(\$basename*)
+
+#echo \$files
 
 # number of files made in split
-total=`ls ${base}0* | wc -l`
+#total=`ls ${base}0* | wc -l`
 
 # total=\${#files[@]}
-total=\$((total-2))
+#total=\$((total-2))
 
-echo "basename "\$basename
-echo "total "\$total
+#echo "basename "\$basename
+#echo "total "\$total
 
 # Michelle's split command
 # Checks head/tail of each file to check record boundaries 
-fixSplit() {
-        inum=\$(printf %03d \$i)
-        last_record=\$(tail -1 \$basename\$inum | cut -f1)
-        j=\$((i + 1))
-        j=\$(printf %03d \$j)
-        echo "Last record in "\$basename\$inum" is "\$last_record". Grepping in "\$basename\$j"."
-        head -n 30000 \$basename\$j | grep \$last_record >> \$basename\$inum
-        echo "Removing "\$last_record" from "\$basename\$j"."
-        vim -e +:g/\$last_record/d -cwq \$basename\$j
-        echo "Done."
-}
+#fixSplit() {
+#        inum=\$(printf %03d \$i)
+#        last_record=\$(tail -1 \$basename\$inum | cut -f1)
+#        j=\$((i + 1))
+#        j=\$(printf %03d \$j)
+#        echo "Last record in "\$basename\$inum" is "\$last_record". Grepping in "\$basename\$j"."
+#        head -n 30000 \$basename\$j | grep \$last_record >> \$basename\$inum
+#        echo "Removing "\$last_record" from "\$basename\$j"."
+#        vim -e +:g/\$last_record/d -cwq \$basename\$j
+#        echo "Done."
+#}
 
-for i in \$(seq 0 \$total); do fixSplit & done
+#for i in \$(seq 0 \$total); do fixSplit & done
 
-wait
+#wait
 
 
 # removing to avoid output collisions 
@@ -666,7 +669,7 @@ mv ${base}.sorted.sam sortedsam.sam
 rm ${base}.sam
 
 # remove files of size zero. This happens when all of the records from the last file should be in the second to last file. 
-find . -name "${base}0*" -size  0 -print -delete
+#find . -name "${base}0*" -size  0 -print -delete
 
 """
 }
