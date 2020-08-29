@@ -590,7 +590,7 @@ process collect_snap_results {
 
     // Define the output files
     output:
-      tuple val(base), file("${base}0*")
+      tuple val(base), file("${base}*.sam")
       file "sortedsam.sam"
     // Code to be executed inside the task
     script:
@@ -616,13 +616,13 @@ ls -lah
 
 echo "splitting ${base} pseudosam"
 
-linenum=`cat ${base}.sorted.sam | wc -l`
-splitnum=`echo \$(( \$linenum / ${params.TIEBREAKING_CHUNKS} ))`
+#linenum=`cat ${base}.sorted.sam | wc -l`
+#splitnum=`echo \$(( \$linenum / ${params.TIEBREAKING_CHUNKS} ))`
 
 echo "lines to split: "\$splitnum 
 
 # split files by splitnum number of lines
-split -d -a 3  -l \$splitnum ${base}.sorted.sam ${base}
+#split -d -a 3  -l \$splitnum ${base}.sorted.sam ${base}
 
 echo "ls after split"
 ls -latr
@@ -1202,7 +1202,11 @@ import sys
 import string
 
 from collections import defaultdict
+
+#literally only exists to make test work 
+#taxa.sqlite is too big to have in github actions. Workaround is to have it download a new one during tests but use real one in production
 ncbi = NCBITaxa(dbfile = 'taxa.sqlite')
+
 
 host_lineage = ncbi.get_lineage(${params.H_TAXID})
 print(host_lineage)
